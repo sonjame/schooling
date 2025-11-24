@@ -1,0 +1,6 @@
+/* 기본 Next.js 초기화용 */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
