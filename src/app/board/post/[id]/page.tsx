@@ -40,10 +40,8 @@ export default function PostDetailPage() {
   const [reportType, setReportType] = useState('')
   const [reportText, setReportText] = useState('')
 
-  // 댓글 개별 메뉴 상태
   const [openCommentMenu, setOpenCommentMenu] = useState<string | null>(null)
 
-  // 공통 모달
   const [modal, setModal] = useState({
     show: false,
     message: '',
@@ -80,9 +78,7 @@ export default function PostDetailPage() {
     })
   }
 
-  /* ------------------------------------
-            게시글 + 댓글 로딩
-  ------------------------------------- */
+  /* 게시글 + 댓글 로딩 */
   useEffect(() => {
     let foundPost = null
     let foundKey = ''
@@ -113,9 +109,7 @@ export default function PostDetailPage() {
     if (user && foundPost) setIsAuthor(user === foundPost.author)
   }, [])
 
-  /* ------------------------------------
-              스크랩 여부
-  ------------------------------------- */
+  /* 스크랩 여부 */
   useEffect(() => {
     if (!post || !username) return
 
@@ -146,9 +140,7 @@ export default function PostDetailPage() {
     localStorage.setItem(scrapKey, JSON.stringify(updated))
   }
 
-  /* ------------------------------------
-        댓글 트리 구성
-------------------------------------- */
+  /* 댓글 트리 구성 */
   function buildTree(arr: any[], parent: string | null = null): any[] {
     return arr
       .filter((c) => c.parent === parent)
@@ -160,9 +152,7 @@ export default function PostDetailPage() {
 
   const commentTree = buildTree(comments)
 
-  /* ------------------------------------
-              댓글 작성
-  ------------------------------------- */
+  /* 댓글 작성 */
   const writeComment = () => {
     if (!commentValue.trim()) return
 
@@ -181,9 +171,7 @@ export default function PostDetailPage() {
     setCommentValue('')
   }
 
-  /* ------------------------------------
-            대댓글 작성
-  ------------------------------------- */
+  /* 대댓글 작성 */
   const writeReply = () => {
     if (!replyValue.trim() || !replyTarget) return
 
@@ -203,9 +191,7 @@ export default function PostDetailPage() {
     setReplyTarget(null)
   }
 
-  /* ------------------------------------
-              댓글 수정 (고침!!)
-  ------------------------------------- */
+  /* 댓글 수정 */
   const saveEdit = () => {
     const updated = comments.map((c) =>
       c.id === editId ? { ...c, content: editValue } : c
@@ -218,9 +204,7 @@ export default function PostDetailPage() {
     setEditValue('')
   }
 
-  /* ------------------------------------
-              댓글 삭제
-  ------------------------------------- */
+  /* 댓글 삭제 */
   const deleteComment = (id: string) => {
     showConfirm('댓글을 삭제하시겠습니까?', () => {
       const updated = comments.filter((c) => c.id !== id && c.parent !== id)
@@ -230,9 +214,21 @@ export default function PostDetailPage() {
     })
   }
 
-  /* ------------------------------------
-             좋아요 기능
-  ------------------------------------- */
+  /* 게시글 삭제 함수 추가 (🔥 수정된 부분) */
+  const deletePost = () => {
+    showConfirm('게시글을 삭제하시겠습니까?', () => {
+      const list = JSON.parse(localStorage.getItem(storageKey) || '[]')
+      const updated = list.filter((p: any) => p.id !== post.id)
+
+      localStorage.setItem(storageKey, JSON.stringify(updated))
+
+      showAlert('게시글이 삭제되었습니다.', () => {
+        router.push(`/board`)
+      })
+    })
+  }
+
+  /* 좋아요 */
   const handleLike = () => {
     if (!username) return showAlert('로그인이 필요합니다.')
 
@@ -262,9 +258,7 @@ export default function PostDetailPage() {
     localStorage.setItem(likeKey, JSON.stringify(newLiked))
   }
 
-  /* ------------------------------------
-             댓글 렌더링 (메뉴 포함)
-  ------------------------------------- */
+  /* 댓글 렌더링 */
   const renderComments = (list: any[], depth = 0) => {
     return list.map((c) => (
       <div
@@ -279,7 +273,6 @@ export default function PostDetailPage() {
           position: 'relative',
         }}
       >
-        {/* 댓글 메뉴 버튼 */}
         <button
           style={menuBtn}
           onClick={() =>
@@ -314,7 +307,6 @@ export default function PostDetailPage() {
           </div>
         )}
 
-        {/* 댓글 내용 */}
         {editId === c.id ? (
           <div>
             <textarea
@@ -342,7 +334,6 @@ export default function PostDetailPage() {
           </>
         )}
 
-        {/* 대댓글 입력 */}
         {replyTarget === c.id && (
           <div style={{ marginTop: '10px' }}>
             <textarea
@@ -367,9 +358,7 @@ export default function PostDetailPage() {
   if (!post)
     return <p style={{ padding: '20px' }}>게시글을 찾을 수 없습니다.</p>
 
-  /* ------------------------------------
-                    UI
-  ------------------------------------- */
+  /* UI */
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
       <h3 style={{ color: '#4FC3F7', marginBottom: '12px' }}>
@@ -404,7 +393,7 @@ export default function PostDetailPage() {
             </button>
 
             {isAuthor && (
-              <button style={menuItemRed} onClick={deleteComment}>
+              <button style={menuItemRed} onClick={deletePost}>
                 🗑 삭제하기
               </button>
             )}
@@ -672,7 +661,7 @@ const textArea: React.CSSProperties = {
   width: '100%',
   height: '90px',
   padding: '10px',
-  border: '1px solid #ccc',
+  border: '1px solid '#ccc',
   borderRadius: '8px',
   marginBottom: '10px',
 }
