@@ -661,7 +661,7 @@ const textArea: React.CSSProperties = {
   width: '100%',
   height: '90px',
   padding: '10px',
-  border: '1px solid '#ccc',
+  border: '1px solid #ccc', // ✅ 여기 수정됨!
   borderRadius: '8px',
   marginBottom: '10px',
 }
