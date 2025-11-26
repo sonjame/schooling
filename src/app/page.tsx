@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Footer from '../components/Footer'
 import TimetablePreview from '../components/Dashboard/TimetablePreview'
 import Link from 'next/link'
 
@@ -179,7 +180,7 @@ export default function HomePage() {
           textAlign: 'center',
         }}
       >
-        💙 학교 커뮤니티 메인
+        💙 학교 커뮤니티 메인 💙
       </h2>
 
       <p
@@ -192,6 +193,11 @@ export default function HomePage() {
       >
         학생 생활을 한눈에 확인하세요 📚
       </p>
+
+      {/* 🔥🔥🔥 오늘의 급식 추가 */}
+      <section style={{ marginBottom: '26px' }}>
+        <Footer />
+      </section>
 
       {/* ------------------ 오늘 일정 ------------------ */}
       <section style={{ marginBottom: '26px' }}>

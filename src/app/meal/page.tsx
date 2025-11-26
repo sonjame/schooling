@@ -124,65 +124,106 @@ export default function WeeklyMealPage() {
   return (
     <div
       style={{
-        fontFamily: "'Noto Sans KR', sans-serif",
-        maxWidth: '500px',
-        margin: '0 auto',
+        marginBottom: '32px',
         padding: '20px',
+        background: '#ffffff',
+        borderRadius: '16px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+        fontFamily: "'Noto Sans KR', sans-serif",
       }}
     >
-      <h1
+      <h3
         style={{
-          fontSize: '24px',
+          fontSize: '20px',
           fontWeight: 700,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
+          color: '#4FC3F7',
+          paddingBottom: '6px',
+          borderBottom: '2px solid #4FC3F7',
+          marginBottom: '16px',
         }}
       >
-        <span className="material-symbols-outlined" style={{ fontSize: 30 }}>
-          restaurant_menu
-        </span>
-        주간 급식표
-      </h1>
+        🍱 이번 주 점심 메뉴
+      </h3>
 
-      {loading && <p style={{ marginTop: 20, fontSize: 16 }}>불러오는 중...</p>}
-
-      {!loading &&
-        weekMeals.map((d, i) => (
+      <div
+        style={{
+          display: 'grid',
+          gap: '16px',
+        }}
+      >
+        {weekMeals.map((d, idx) => (
           <div
-            key={i}
+            key={idx}
             style={{
-              marginTop: 16,
-              padding: 18,
-              borderRadius: 12,
-              background: '#fafafa',
-              boxShadow: '0 3px 12px rgba(0,0,0,0.08)',
+              padding: '18px',
+              borderRadius: '14px',
+              background: '#E3F2FD', // 🎨 파스텔 블루 배경
+              color: '#222', // 🖤 검은색 텍스트
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              border: '1px solid #BBDEFB',
             }}
           >
+            {/* 날짜 영역 */}
             <div
               style={{
-                fontSize: 18,
-                fontWeight: 600,
-                marginBottom: 10,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: '8px',
+                marginBottom: '12px',
               }}
             >
-              <span className="material-symbols-outlined">calendar_month</span>
-              {d.label}
+              <span
+                className="material-symbols-outlined"
+                style={{
+                  fontSize: 22,
+                  background: '#BBDEFB', // 🎨 연한 파스텔 블루
+                  padding: '6px',
+                  borderRadius: '8px',
+                  color: '#1A237E', // 딥블루 아이콘 색
+                }}
+              >
+                calendar_month
+              </span>
+
+              <span
+                style={{
+                  fontSize: '17px',
+                  fontWeight: 700,
+                  color: '#0D47A1', // 덜 튀는 블루 텍스트
+                }}
+              >
+                {d.label}
+              </span>
             </div>
 
-            {!d.meal && <p>급식 없음</p>}
-
-            {d.meal &&
-              d.meal.map((item, idx) => (
-                <p key={idx} style={{ margin: '6px 0', fontSize: 15 }}>
-                  • {item}
-                </p>
-              ))}
+            {/* 점심 메뉴 */}
+            {!d.meal ? (
+              <p style={{ opacity: 0.85, fontSize: 15 }}>급식 정보 없음</p>
+            ) : (
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: '18px',
+                  fontSize: '15px',
+                  lineHeight: 1.6,
+                  color: '#222', // 검은색 메뉴 글씨
+                }}
+              >
+                {d.meal.map((m, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      marginBottom: 4,
+                    }}
+                  >
+                    {m}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         ))}
+      </div>
     </div>
   )
 }
