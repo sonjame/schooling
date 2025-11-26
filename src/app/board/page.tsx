@@ -16,12 +16,12 @@ export default function BoardMainPage() {
   useEffect(() => {
     // 🔹 여기서 icon까지 같이 정의해주기
     const boards: Omit<BoardSection, 'posts'>[] = [
-      { key: 'free', title: '자유게시판', icon: '💬' },
-      { key: 'promo', title: '홍보게시판', icon: '📢' },
-      { key: 'club', title: '동아리게시판', icon: '👥' },
-      { key: 'grade1', title: '1학년게시판', icon: '1️⃣' },
-      { key: 'grade2', title: '2학년게시판', icon: '2️⃣' },
-      { key: 'grade3', title: '3학년게시판', icon: '3️⃣' },
+      { key: 'free', title: '자유게시판', icon: '' },
+      { key: 'promo', title: '홍보게시판', icon: '' },
+      { key: 'club', title: '동아리게시판', icon: '' },
+      { key: 'grade1', title: '1학년게시판', icon: '' },
+      { key: 'grade2', title: '2학년게시판', icon: '' },
+      { key: 'grade3', title: '3학년게시판', icon: '' },
     ]
 
     const loaded: BoardSection[] = boards.map((b) => {

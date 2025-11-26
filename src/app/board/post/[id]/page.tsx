@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import type React from 'react'
 
 export default function PostDetailPage() {
   const params = useParams<{ id: string }>()
@@ -21,10 +22,9 @@ export default function PostDetailPage() {
   const [storageKey, setStorageKey] = useState<string>('')
 
   const [comments, setComments] = useState<any[]>([])
-  const [username, setUsername] = useState<string | null>(null)
+  const [username, setUsername] = useState<string>('') // username만 저장하도록 고침
 
   const [commentValue, setCommentValue] = useState('')
-
   const [replyTarget, setReplyTarget] = useState<string | null>(null)
   const [replyValue, setReplyValue] = useState('')
 
@@ -72,17 +72,18 @@ export default function PostDetailPage() {
         setModal((m) => ({ ...m, show: false }))
         yesFn()
       },
-      onCancel: () => {
-        setModal((m) => ({ ...m, show: false }))
-      },
+      onCancel: () => setModal((m) => ({ ...m, show: false })),
     })
   }
 
-  /* 게시글 + 댓글 로딩 */
+  /* ------------------------------------------
+     게시글 + 댓글 로딩
+  ------------------------------------------- */
   useEffect(() => {
-    let foundPost = null
+    let foundPost: any = null
     let foundKey = ''
 
+    // 게시글 찾기
     for (const key of boardKeys) {
       const list = JSON.parse(localStorage.getItem(key) || '[]')
       const match = list.find((p: any) => String(p.id) === String(postId))
@@ -98,44 +99,71 @@ export default function PostDetailPage() {
       setStorageKey(foundKey)
     }
 
-    const savedComments = JSON.parse(
+    // 로그인 유저 username만 불러오기
+    try {
+      const saved = localStorage.getItem('loggedInUser')
+      const parsed = JSON.parse(saved || '{}')
+      setUsername(parsed.username || '')
+    } catch {
+      setUsername('')
+    }
+
+    // 댓글 로드 + author 자동 정리
+    const rawComments = JSON.parse(
       localStorage.getItem(`comments_${postId}`) || '[]'
     )
-    setComments(savedComments)
 
-    // ⭐ 수정된 부분: 로그인 정보 파싱
-    const savedUser = localStorage.getItem('loggedInUser')
-    let parsedUser = null
+    const cleaned = rawComments.map((c: any) => {
+      let author = c.author
 
-    try {
-      parsedUser = savedUser ? JSON.parse(savedUser).username : null
-    } catch {
-      parsedUser = savedUser
-    }
+      // author가 JSON 형태이면 username만 추출
+      if (typeof author === 'string' && author.includes('{')) {
+        try {
+          author = JSON.parse(author).username || author
+        } catch {}
+      }
 
-    setUsername(parsedUser)
+      return { ...c, author }
+    })
 
-    // ⭐ 수정된 부분: 작성자 여부 체크
-    if (parsedUser && foundPost) {
-      setIsAuthor(String(parsedUser).trim() === String(foundPost.author).trim())
-    }
-  }, [])
+    setComments(cleaned)
+    localStorage.setItem(`comments_${postId}`, JSON.stringify(cleaned))
+  }, [postId])
 
-  /* 스크랩 여부 */
+  /* ------------------------------------------
+     게시글 작성자인지 체크
+  ------------------------------------------- */
   useEffect(() => {
     if (!post || !username) return
 
-    const scrapKey = `scrap_${username}`
-    const saved = JSON.parse(localStorage.getItem(scrapKey) || '[]')
+    let author = post.author
 
+    // author가 JSON이면 username만 추출
+    if (typeof author === 'string' && author.includes('{')) {
+      try {
+        author = JSON.parse(author).username
+      } catch {}
+    }
+
+    setIsAuthor(username.trim() === String(author).trim())
+  }, [post, username])
+
+  /* ------------------------------------------
+     스크랩 여부
+  ------------------------------------------- */
+  useEffect(() => {
+    if (!post || !username) return
+
+    const key = `scrap_${username}`
+    const saved = JSON.parse(localStorage.getItem(key) || '[]')
     setScrapped(saved.includes(postId))
   }, [post, username])
 
   const toggleScrap = () => {
     if (!username) return showAlert('로그인이 필요합니다.')
 
-    const scrapKey = `scrap_${username}`
-    const saved = JSON.parse(localStorage.getItem(scrapKey) || '[]')
+    const key = `scrap_${username}`
+    const saved = JSON.parse(localStorage.getItem(key) || '[]')
 
     let updated = []
 
@@ -149,10 +177,12 @@ export default function PostDetailPage() {
       showAlert('스크랩되었습니다.')
     }
 
-    localStorage.setItem(scrapKey, JSON.stringify(updated))
+    localStorage.setItem(key, JSON.stringify(updated))
   }
 
-  /* 댓글 트리 구성 */
+  /* ------------------------------------------
+     댓글 트리 구성
+  ------------------------------------------- */
   function buildTree(arr: any[], parent: string | null = null): any[] {
     return arr
       .filter((c) => c.parent === parent)
@@ -164,7 +194,9 @@ export default function PostDetailPage() {
 
   const commentTree = buildTree(comments)
 
-  /* 댓글 작성 */
+  /* ------------------------------------------
+     댓글 작성
+  ------------------------------------------- */
   const writeComment = () => {
     if (!commentValue.trim()) return
 
@@ -178,12 +210,14 @@ export default function PostDetailPage() {
 
     const updated = [...comments, newComment]
     setComments(updated)
-    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
 
+    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
     setCommentValue('')
   }
 
-  /* 대댓글 작성 */
+  /* ------------------------------------------
+     대댓글 작성
+  ------------------------------------------- */
   const writeReply = () => {
     if (!replyValue.trim() || !replyTarget) return
 
@@ -197,13 +231,15 @@ export default function PostDetailPage() {
 
     const updated = [...comments, newReply]
     setComments(updated)
-    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
 
+    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
     setReplyValue('')
     setReplyTarget(null)
   }
 
-  /* 댓글 수정 */
+  /* ------------------------------------------
+     댓글 수정
+  ------------------------------------------- */
   const saveEdit = () => {
     const updated = comments.map((c) =>
       c.id === editId ? { ...c, content: editValue } : c
@@ -216,23 +252,34 @@ export default function PostDetailPage() {
     setEditValue('')
   }
 
-  /* 댓글 삭제 */
+  /* ------------------------------------------
+     댓글 삭제
+  ------------------------------------------- */
   const deleteComment = (id: string) => {
     showConfirm('댓글을 삭제하시겠습니까?', () => {
       const updated = comments.filter((c) => c.id !== id && c.parent !== id)
-
       setComments(updated)
+
       localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
     })
   }
 
-  /* 게시글 삭제 */
+  /* ------------------------------------------
+     게시글 삭제 (posts_all + board_xxx)
+  ------------------------------------------- */
   const deletePost = () => {
+    if (!storageKey || !post) return
+
     showConfirm('게시글을 삭제하시겠습니까?', () => {
+      // 게시판 제거
       const list = JSON.parse(localStorage.getItem(storageKey) || '[]')
       const updated = list.filter((p: any) => p.id !== post.id)
-
       localStorage.setItem(storageKey, JSON.stringify(updated))
+
+      // 전체 게시판 제거
+      const all = JSON.parse(localStorage.getItem('posts_all') || '[]')
+      const updatedAll = all.filter((p: any) => p.id !== post.id)
+      localStorage.setItem('posts_all', JSON.stringify(updatedAll))
 
       showAlert('게시글이 삭제되었습니다.', () => {
         router.push(`/board`)
@@ -240,28 +287,34 @@ export default function PostDetailPage() {
     })
   }
 
-  /* 좋아요 */
+  /* ------------------------------------------
+     좋아요 (전체 + 게시판)
+  ------------------------------------------- */
   const handleLike = () => {
     if (!username) return showAlert('로그인이 필요합니다.')
+    if (!post || !storageKey) return
 
     const likeKey = `like_postIds_${username}`
     const liked = JSON.parse(localStorage.getItem(likeKey) || '[]')
     const already = liked.includes(postId)
 
-    const all = JSON.parse(localStorage.getItem(storageKey) || '[]')
+    const newLikes = already ? post.likes - 1 : post.likes + 1
 
-    const updatedPosts = all.map((p: any) =>
-      p.id === post.id
-        ? { ...p, likes: already ? p.likes - 1 : p.likes + 1 }
-        : p
+    // board_xxx 수정
+    const boardList = JSON.parse(localStorage.getItem(storageKey) || '[]')
+    const updatedBoard = boardList.map((p: any) =>
+      p.id === post.id ? { ...p, likes: newLikes } : p
     )
+    localStorage.setItem(storageKey, JSON.stringify(updatedBoard))
 
-    localStorage.setItem(storageKey, JSON.stringify(updatedPosts))
+    // posts_all 수정
+    const all = JSON.parse(localStorage.getItem('posts_all') || '[]')
+    const updatedAll = all.map((p: any) =>
+      p.id === post.id ? { ...p, likes: newLikes } : p
+    )
+    localStorage.setItem('posts_all', JSON.stringify(updatedAll))
 
-    setPost({
-      ...post,
-      likes: already ? post.likes - 1 : post.likes + 1,
-    })
+    setPost({ ...post, likes: newLikes })
 
     const newLiked = already
       ? liked.filter((x: string) => x !== postId)
@@ -270,107 +323,128 @@ export default function PostDetailPage() {
     localStorage.setItem(likeKey, JSON.stringify(newLiked))
   }
 
-  /* 댓글 렌더링 */
+  /* ------------------------------------------
+     댓글 렌더링 함수
+  ------------------------------------------- */
   const renderComments = (list: any[], depth = 0) => {
-    return list.map((c) => (
-      <div
-        key={c.id}
-        style={{
-          marginLeft: depth * 20,
-          background: '#F7FBFF',
-          border: '1px solid #E0EEF8',
-          padding: '14px',
-          borderRadius: '10px',
-          marginBottom: '12px',
-          position: 'relative',
-        }}
-      >
-        <button
-          style={menuBtn}
-          onClick={() =>
-            setOpenCommentMenu(openCommentMenu === c.id ? null : c.id)
-          }
+    return list.map((c) => {
+      // 댓글 작성자 비교 (JSON이면 username만 추출)
+      let writer = c.author
+      if (typeof writer === 'string' && writer.includes('{')) {
+        try {
+          writer = JSON.parse(writer).username
+        } catch {}
+      }
+
+      const isWriter = writer === username
+
+      return (
+        <div
+          key={c.id}
+          style={{
+            marginLeft: depth * 20,
+            background: '#F7FBFF',
+            border: '1px solid #E0EEF8',
+            padding: '14px',
+            borderRadius: '10px',
+            marginBottom: '12px',
+            position: 'relative',
+          }}
         >
-          ⋮
-        </button>
+          {/* 메뉴 버튼 */}
+          <button
+            style={menuBtn}
+            onClick={() =>
+              setOpenCommentMenu(openCommentMenu === c.id ? null : c.id)
+            }
+          >
+            ⋮
+          </button>
 
-        {openCommentMenu === c.id && (
-          <div style={menuBox}>
-            <button style={menuItem} onClick={() => setReportOpen(true)}>
-              🚩 신고하기
-            </button>
+          {openCommentMenu === c.id && (
+            <div style={menuBox}>
+              <button style={menuItem} onClick={() => setReportOpen(true)}>
+                🚩 신고하기
+              </button>
 
-            {c.author === username && (
-              <>
-                <button
-                  style={menuItem}
-                  onClick={() => {
-                    setEditId(c.id)
-                    setEditValue(c.content)
-                  }}
-                >
-                  ✏ 수정하기
-                </button>
-                <button style={menuItemRed} onClick={() => deleteComment(c.id)}>
-                  🗑 삭제하기
-                </button>
-              </>
-            )}
-          </div>
-        )}
+              {isWriter && (
+                <>
+                  <button
+                    style={menuItem}
+                    onClick={() => {
+                      setEditId(c.id)
+                      setEditValue(c.content)
+                    }}
+                  >
+                    ✏ 수정하기
+                  </button>
+                  <button
+                    style={menuItemRed}
+                    onClick={() => deleteComment(c.id)}
+                  >
+                    🗑 삭제하기
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
-        {editId === c.id ? (
-          <div>
-            <textarea
-              style={textBox}
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-            />
-            <button style={btnBlue} onClick={saveEdit}>
-              저장
-            </button>
-            <button style={btnGray} onClick={() => setEditId(null)}>
-              취소
-            </button>
-          </div>
-        ) : (
-          <>
-            <div style={{ fontWeight: 600 }}>{c.content}</div>
-            <small style={{ color: '#666' }}>
-              {c.author} · {c.createdAt}
-            </small>
+          {editId === c.id ? (
+            <div>
+              <textarea
+                style={textBox}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+              />
+              <button style={btnBlue} onClick={saveEdit}>
+                저장
+              </button>
+              <button style={btnGray} onClick={() => setEditId(null)}>
+                취소
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontWeight: 600 }}>{c.content}</div>
+              <small style={{ color: '#666' }}>
+                {writer} · {c.createdAt}
+              </small>
 
-            <button style={btnSmall} onClick={() => setReplyTarget(c.id)}>
-              ↪ 답글
-            </button>
-          </>
-        )}
+              <button style={btnSmall} onClick={() => setReplyTarget(c.id)}>
+                ↪ 답글
+              </button>
+            </>
+          )}
 
-        {replyTarget === c.id && (
-          <div style={{ marginTop: '10px' }}>
-            <textarea
-              style={textBox}
-              value={replyValue}
-              onChange={(e) => setReplyValue(e.target.value)}
-            />
-            <button style={btnBlue} onClick={writeReply}>
-              답글 작성
-            </button>
-            <button style={btnGray} onClick={() => setReplyTarget(null)}>
-              취소
-            </button>
-          </div>
-        )}
+          {replyTarget === c.id && (
+            <div style={{ marginTop: '10px' }}>
+              <textarea
+                style={textBox}
+                value={replyValue}
+                onChange={(e) => setReplyValue(e.target.value)}
+              />
+              <button style={btnBlue} onClick={writeReply}>
+                답글 작성
+              </button>
+              <button style={btnGray} onClick={() => setReplyTarget(null)}>
+                취소
+              </button>
+            </div>
+          )}
 
-        {renderComments(c.children, depth + 1)}
-      </div>
-    ))
+          {/* 자식 댓글 */}
+          {renderComments(c.children, depth + 1)}
+        </div>
+      )
+    })
   }
 
   if (!post)
     return <p style={{ padding: '20px' }}>게시글을 찾을 수 없습니다.</p>
 
-  /* UI */
+  /* ------------------------------------------
+     UI RETURN
+  ------------------------------------------- */
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
       <h3 style={{ color: '#4FC3F7', marginBottom: '12px' }}>
@@ -430,6 +504,19 @@ export default function PostDetailPage() {
           <h2 style={{ fontSize: '24px', fontWeight: 800 }}>{post.title}</h2>
         </div>
 
+        {post.image && (
+          <div style={{ padding: '16px 20px' }}>
+            <img
+              src={post.image}
+              style={{
+                maxWidth: '100%',
+                borderRadius: 10,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              }}
+            />
+          </div>
+        )}
+
         <div style={postBody}>{post.content}</div>
 
         <div style={{ padding: '0 20px 20px' }}>
@@ -443,6 +530,9 @@ export default function PostDetailPage() {
               background: scrapped ? '#FFB74D' : '#E0E0E0',
               borderRadius: '6px',
               marginLeft: '10px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
             }}
             onClick={toggleScrap}
           >
@@ -475,8 +565,17 @@ export default function PostDetailPage() {
       {reportOpen && (
         <div style={modalBg}>
           <div style={reportBox}>
-            <h3 style={{ marginBottom: '10px' }}>🚨 신고하기</h3>
+            <h3
+              style={{
+                marginBottom: '12px',
+                fontSize: '18px',
+                fontWeight: 700,
+              }}
+            >
+              🚨 신고하기
+            </h3>
 
+            {/* 신고 유형 */}
             <select
               style={inputBox}
               value={reportType}
@@ -489,9 +588,10 @@ export default function PostDetailPage() {
               <option value="기타">기타</option>
             </select>
 
+            {/* 기타 사유 입력 */}
             {reportType === '기타' && (
               <textarea
-                style={textArea}
+                style={reportTextArea}
                 placeholder="신고 사유를 입력해주세요..."
                 value={reportText}
                 onChange={(e) => setReportText(e.target.value)}
@@ -503,7 +603,7 @@ export default function PostDetailPage() {
                 display: 'flex',
                 justifyContent: 'center',
                 gap: '12px',
-                marginTop: '12px',
+                marginTop: '14px',
               }}
             >
               <button style={btnGray} onClick={() => setReportOpen(false)}>
@@ -535,7 +635,7 @@ export default function PostDetailPage() {
                 marginTop: '10px',
                 display: 'flex',
                 gap: '10px',
-                justifyContent: 'center', // ⭐ 중앙 정렬 추가됨
+                justifyContent: 'center',
               }}
             >
               {modal.type === 'confirm' && (
@@ -618,10 +718,14 @@ const commentCard: React.CSSProperties = {
 
 const textBox: React.CSSProperties = {
   width: '100%',
-  padding: '10px',
-  border: '1px solid #ccc',
-  borderRadius: '8px',
-  marginBottom: '10px',
+  padding: '12px 14px',
+  border: '1.5px solid #cfd8dc',
+  borderRadius: '10px',
+  marginBottom: '14px',
+  fontSize: '14px',
+  boxSizing: 'border-box',
+  background: '#ffffff',
+  resize: 'none',
 }
 
 const btnBlue: React.CSSProperties = {
@@ -670,11 +774,14 @@ const modalBox: React.CSSProperties = {
 }
 
 const reportBox: React.CSSProperties = {
-  background: 'white',
+  background: '#ffffff',
   padding: '22px',
   borderRadius: '12px',
-  width: '360px',
+  width: '420px',
+  maxWidth: '90%',
   textAlign: 'center',
+  boxShadow: '0 4px 18px rgba(0,0,0,0.12)',
+  border: '1.5px solid #E3EAF3',
 }
 
 const inputBox: React.CSSProperties = {
@@ -685,11 +792,16 @@ const inputBox: React.CSSProperties = {
   marginBottom: '10px',
 }
 
-const textArea: React.CSSProperties = {
+const reportTextArea: React.CSSProperties = {
   width: '100%',
-  height: '90px',
-  padding: '10px',
-  border: '1px solid #ccc', // ✅ 여기 수정됨!
-  borderRadius: '8px',
-  marginBottom: '10px',
+  minHeight: '110px',
+  padding: '12px',
+  border: '1.5px solid #D0D7DF',
+  borderRadius: '10px',
+  fontSize: '14px',
+  resize: 'vertical',
+  outlineColor: '#4FC3F7',
+  background: '#FAFCFF',
+  marginTop: '10px',
+  boxSizing: 'border-box',
 }

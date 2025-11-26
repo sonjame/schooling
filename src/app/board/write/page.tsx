@@ -7,7 +7,7 @@ export default function WritePage() {
   const [category, setCategory] = useState('free')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [image, setImage] = useState('')
+  const [images, setImages] = useState<string[]>([]) // ⭐ 여러 장 저장
 
   /* 모달 */
   const [modal, setModal] = useState({
@@ -34,14 +34,20 @@ export default function WritePage() {
     if (c) setCategory(c)
   }, [])
 
-  /* 이미지 업로드 */
+  /* ⭐ 이미지 여러 장 업로드 */
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files) return
 
-    const reader = new FileReader()
-    reader.onload = () => setImage(reader.result as string)
-    reader.readAsDataURL(file)
+    const fileArray = Array.from(files)
+
+    fileArray.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        setImages((prev) => [...prev, reader.result as string])
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
   /* 🔥 글 작성 저장 */
@@ -51,31 +57,34 @@ export default function WritePage() {
       return
     }
 
-    // 🔥 로그인 정보 파싱 (문자열 형태로 username만 저장)
-    const saved = localStorage.getItem('loggedInUser')
+    // 로그인 정보 username만 사용
+    const raw = localStorage.getItem('loggedInUser')
     let username = '익명'
 
     try {
-      username = saved ? JSON.parse(saved).username : '익명'
+      const obj = JSON.parse(raw || '{}')
+      username = obj.username || '익명'
     } catch {
-      username = saved || '익명'
+      username = raw || '익명'
     }
 
     const storageKey = `board_${category}`
-    const all = JSON.parse(localStorage.getItem(storageKey) || '[]')
+    const boardList = JSON.parse(localStorage.getItem(storageKey) || '[]')
+    const allPosts = JSON.parse(localStorage.getItem('posts_all') || '[]')
 
     const newPost = {
       id: crypto.randomUUID(),
       title,
       content,
-      author: username, // ★ 문자열 "동석" 형태로 저장됨
+      images, // ⭐ 여러 장 저장됨
+      author: username,
       category,
       likes: 0,
       createdAt: Date.now(),
-      image,
     }
 
-    localStorage.setItem(storageKey, JSON.stringify([newPost, ...all]))
+    localStorage.setItem(storageKey, JSON.stringify([newPost, ...boardList]))
+    localStorage.setItem('posts_all', JSON.stringify([newPost, ...allPosts]))
 
     showAlert('작성 완료!', () => {
       window.location.href = `/board/${category}`
@@ -84,24 +93,26 @@ export default function WritePage() {
 
   return (
     <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-      />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded"
-        rel="stylesheet"
-      />
-
       <div style={pageWrap}>
         <div style={card}>
           <h2 style={titleStyle}>
-            <span className="material-symbols-rounded" style={titleIcon}>
-              edit
-            </span>
+            <span className="material-symbols-rounded" style={titleIcon}></span>
             글쓰기
           </h2>
 
+          {/* 카테고리 */}
+          <label style={label}>카테고리</label>
+          <div style={{ ...inputBox, background: '#ECEFF1', fontWeight: 600 }}>
+            {category === 'free'
+              ? '자유게시판'
+              : category === 'promo'
+              ? '홍보게시판'
+              : category === 'club'
+              ? '동아리게시판'
+              : `${category.replace('grade', '')}학년 게시판`}
+          </div>
+
+          {/* 제목 */}
           <label style={label}>제목</label>
           <input
             value={title}
@@ -110,6 +121,7 @@ export default function WritePage() {
             style={inputBox}
           />
 
+          {/* 내용 */}
           <label style={label}>내용</label>
           <textarea
             value={content}
@@ -118,10 +130,12 @@ export default function WritePage() {
             style={textArea}
           />
 
+          {/* 이미지 업로드 */}
           <input
             id="uploadImage"
             type="file"
             accept="image/*"
+            multiple // ⭐ 여러장 가능
             hidden
             onChange={handleImageUpload}
           />
@@ -133,20 +147,22 @@ export default function WritePage() {
             사진 업로드
           </label>
 
-          {image && (
-            <div style={previewWrap}>
-              <div style={{ position: 'relative', display: 'inline-block' }}>
-                <img src={image} style={previewImg} />
-
-                <button style={deleteBtn} onClick={() => setImage('')}>
-                  <span
-                    className="material-symbols-rounded"
-                    style={{ fontSize: 20 }}
+          {/* 미리보기 */}
+          {images.length > 0 && (
+            <div style={previewGrid}>
+              {images.map((src, idx) => (
+                <div key={idx} style={previewBox}>
+                  <img src={src} style={previewImg} />
+                  <button
+                    style={deleteBtn}
+                    onClick={() =>
+                      setImages((prev) => prev.filter((_, i) => i !== idx))
+                    }
                   >
-                    close
-                  </span>
-                </button>
-              </div>
+                    ✕
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -156,46 +172,12 @@ export default function WritePage() {
         </div>
       </div>
 
+      {/* 모달 */}
       {modal.show && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.4)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 999,
-          }}
-        >
-          <div
-            style={{
-              width: 320,
-              background: 'white',
-              padding: 22,
-              borderRadius: 12,
-              textAlign: 'center',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            }}
-          >
-            <p
-              style={{ marginBottom: 20, fontSize: 15, whiteSpace: 'pre-line' }}
-            >
-              {modal.message}
-            </p>
-
-            <button
-              style={{
-                padding: '8px 14px',
-                background: '#4FC3F7',
-                color: 'white',
-                borderRadius: 6,
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-              onClick={modal.onConfirm}
-            >
+        <div style={modalBg}>
+          <div style={modalBox}>
+            <p>{modal.message}</p>
+            <button style={btnBlue} onClick={modal.onConfirm}>
               확인
             </button>
           </div>
@@ -205,35 +187,37 @@ export default function WritePage() {
   )
 }
 
-/* 스타일들 (생략 - 네 기존 그대로) */
-
 /* -------------------- Style -------------------- */
 
 const pageWrap: React.CSSProperties = {
   background: '#F3F6FA',
   minHeight: '100vh',
-  padding: 'clamp(16px, 4vw, 40px)',
+  padding: '40px 20px',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'flex-start',
   fontFamily: 'Inter, sans-serif',
 }
 
 const card: React.CSSProperties = {
   width: '100%',
-  maxWidth: 700,
-  margin: '0 auto',
+  maxWidth: 720,
   background: '#fff',
-  padding: 'clamp(16px, 4vw, 32px)',
-  borderRadius: 18,
-  boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+  padding: '36px 40px',
+  borderRadius: 20,
+  boxShadow: '0 6px 18px rgba(0,0,0,0.06)',
   border: '1px solid #E3EAF3',
+  marginTop: 20,
 }
 
 const titleStyle: React.CSSProperties = {
-  fontSize: 'clamp(20px, 4vw, 26px)',
+  fontSize: 28,
   fontWeight: 800,
   display: 'flex',
   alignItems: 'center',
   color: '#0277BD',
-  marginBottom: 'clamp(16px, 4vw, 24px)',
+  marginBottom: 28,
+  letterSpacing: '-0.3px',
 }
 
 const titleIcon: React.CSSProperties = {
@@ -243,45 +227,48 @@ const titleIcon: React.CSSProperties = {
 
 const label: React.CSSProperties = {
   fontWeight: 600,
-  marginTop: 'clamp(12px, 2vw, 18px)',
-  marginBottom: 6,
-  fontSize: 'clamp(13px, 3vw, 15px)',
+  marginTop: 22,
+  marginBottom: 10,
+  fontSize: 15,
   color: '#37474F',
   display: 'block',
 }
 
 const inputBox: React.CSSProperties = {
   width: '100%',
-  padding: 'clamp(10px, 2vw, 12px)',
-  borderRadius: 10,
-  border: '1px solid #CFD8DC',
+  padding: '14px 16px',
+  borderRadius: 12,
+  border: '1.5px solid #CFD8DC',
   background: '#F9FAFB',
-  fontSize: 'clamp(14px, 3vw, 15px)',
+  fontSize: '15px',
   outline: 'none',
+  boxSizing: 'border-box',
 }
 
 const textArea: React.CSSProperties = {
   width: '100%',
-  height: 'clamp(160px, 25vw, 200px)',
-  padding: 'clamp(10px, 2vw, 12px)',
-  borderRadius: 10,
-  border: '1px solid #CFD8DC',
+  height: 220,
+  padding: '14px 16px',
+  borderRadius: 12,
+  border: '1.5px solid #CFD8DC',
   background: '#F9FAFB',
-  fontSize: 'clamp(14px, 3vw, 15px)',
+  fontSize: '15px',
   resize: 'vertical',
   outline: 'none',
+  boxSizing: 'border-box',
+  lineHeight: 1.6,
 }
 
 const uploadBtn: React.CSSProperties = {
-  marginTop: 'clamp(14px, 3vw, 20px)',
-  marginBottom: 'clamp(14px, 3vw, 20px)',
+  marginTop: 26,
+  marginBottom: 20,
   width: '100%',
-  padding: 'clamp(12px, 3vw, 14px) 0',
+  padding: '14px 0',
   borderRadius: 12,
   background: '#E3F2FD',
   color: '#0277BD',
   fontWeight: 700,
-  fontSize: 'clamp(14px, 3vw, 16px)',
+  fontSize: 16,
   cursor: 'pointer',
   textAlign: 'center',
   display: 'flex',
@@ -291,46 +278,84 @@ const uploadBtn: React.CSSProperties = {
 }
 
 const uploadBtnIcon: React.CSSProperties = {
-  fontSize: 'clamp(20px, 4vw, 22px)',
+  fontSize: 22,
 }
 
-const previewWrap: React.CSSProperties = {
-  textAlign: 'center',
-  marginTop: 20,
-  marginBottom: 20,
+const previewGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+  gap: '14px',
+  marginTop: '10px',
+  marginBottom: '14px',
+}
+
+const previewBox: React.CSSProperties = {
+  position: 'relative',
+  borderRadius: 10,
+  overflow: 'hidden',
+  border: '1px solid #ddd',
 }
 
 const previewImg: React.CSSProperties = {
-  width: 'min(240px, 85%)',
-  borderRadius: 14,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+  width: 110,
+  height: 110,
+  objectFit: 'cover',
+  borderRadius: 12,
+  boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
 }
 
 const deleteBtn: React.CSSProperties = {
   position: 'absolute',
-  top: -10,
-  right: -10,
-  width: 32,
-  height: 32,
+  top: 4,
+  right: 4,
+  background: '#fff',
+  width: 26,
+  height: 26,
   borderRadius: '50%',
-  background: '#ffffff',
   border: '1px solid #ccc',
   cursor: 'pointer',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+  fontWeight: 600,
 }
 
 const submitBtn: React.CSSProperties = {
   width: '100%',
-  padding: 'clamp(12px, 3vw, 14px) 0',
+  padding: '16px 0',
+  marginTop: 30,
   background: 'linear-gradient(90deg, #4FC3F7, #0288D1)',
   border: 'none',
-  borderRadius: 12,
+  borderRadius: 14,
   color: 'white',
-  fontWeight: 700,
-  fontSize: 'clamp(15px, 3vw, 16px)',
+  fontWeight: 800,
+  fontSize: 17,
   cursor: 'pointer',
-  boxShadow: '0 4px 12px rgba(2,136,209,0.25)',
+  boxShadow: '0 5px 14px rgba(2,136,209,0.25)',
+}
+
+const modalBg: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0,0,0,0.4)',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  zIndex: 999,
+}
+
+const modalBox: React.CSSProperties = {
+  background: 'white',
+  padding: '22px',
+  borderRadius: 12,
+  width: 300,
+  textAlign: 'center',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+}
+
+const btnBlue: React.CSSProperties = {
+  background: '#4FC3F7',
+  color: 'white',
+  padding: '8px 14px',
+  borderRadius: 6,
+  border: 'none',
+  fontWeight: 600,
+  cursor: 'pointer',
 }

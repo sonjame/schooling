@@ -5,21 +5,22 @@ import TimetablePreview from '../components/Dashboard/TimetablePreview'
 import Link from 'next/link'
 
 interface Post {
-  id: number
+  id: string
   author: string
   title: string
   content: string
-  likes?: number
-  category?: string
+  likes: number
+  category: string
+  createdAt: number
 }
 
 interface HomeCalendarItem {
-  dateLabel: string // "11월 11일 (월)"
-  event: string // 일정 제목
-  ddayLabel: string // "D-3", "D-Day"
-  diffDays: number // 오늘 기준 날짜 차이
-  weekdayIndex: number // 0=일,1=월...
-  weekdayLabel: string // "월" 같은 한글 요일
+  dateLabel: string
+  event: string
+  ddayLabel: string
+  diffDays: number
+  weekdayIndex: number
+  weekdayLabel: string
 }
 
 export default function HomePage() {
@@ -32,17 +33,42 @@ export default function HomePage() {
     // 로그인 유저
     setUser(localStorage.getItem('loggedInUser') || null)
 
-    // 게시글
-    setPosts(JSON.parse(localStorage.getItem('posts_all') || '[]'))
+    /* ==========================================
+       🔥 A 방식: 모든 게시판 데이터 합치기
+    ========================================== */
+    const boardKeys = [
+      'board_free',
+      'board_promo',
+      'board_club',
+      'board_grade1',
+      'board_grade2',
+      'board_grade3',
+    ]
 
-    // 오늘 요일
+    let allPosts: Post[] = []
+
+    boardKeys.forEach((key) => {
+      const list = JSON.parse(localStorage.getItem(key) || '[]')
+      allPosts = [...allPosts, ...list]
+    })
+
+    // 최신순 정렬
+    allPosts.sort((a, b) => b.createdAt - a.createdAt)
+
+    setPosts(allPosts)
+
+    /* ==========================================
+       📆 오늘 요일
+    ========================================== */
     const dayNames = ['일', '월', '화', '수', '목', '금', '토']
     const now = new Date()
     setToday(`${dayNames[now.getDay()]}요일`)
 
-    // 🔗 캘린더 페이지에서 저장한 일정(localStorage) 읽어오기
+    /* ==========================================
+       📅 홈 캘린더 일정 불러오기
+    ========================================== */
     try {
-      const raw = localStorage.getItem('calendarEvents') // CalendarPage의 STORAGE_KEYS.events와 맞춤
+      const raw = localStorage.getItem('calendarEvents')
       if (!raw) {
         setCalendar([])
         return
@@ -70,26 +96,21 @@ export default function HomePage() {
         const diffMs = dateObj.getTime() - todayZero
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-        // 🔎 오늘 ~ 7일 이내 일정만
         if (diffDays < 0 || diffDays > 7) continue
 
-        const weekdayIndex = dateObj.getDay() // 0~6
+        const weekdayIndex = dateObj.getDay()
         const weekdayLabel = dayNames2[weekdayIndex]
-        const dateLabel = `${m}월 ${d}일 (${weekdayLabel})`
-
-        let ddayLabel = diffDays === 0 ? 'D-Day' : `D-${diffDays}`
 
         upcoming.push({
-          dateLabel,
+          dateLabel: `${m}월 ${d}일 (${weekdayLabel})`,
           event: ev.title,
-          ddayLabel,
+          ddayLabel: diffDays === 0 ? 'D-Day' : `D-${diffDays}`,
           diffDays,
           weekdayIndex,
           weekdayLabel,
         })
       }
 
-      // 가까운 순으로 정렬
       upcoming.sort((a, b) => a.diffDays - b.diffDays)
 
       setCalendar(upcoming)
@@ -99,15 +120,19 @@ export default function HomePage() {
     }
   }, [])
 
+  /* ==========================================
+     🔥 인기 게시물 3개
+  ========================================== */
   const popularPosts = [...posts]
     .sort((a, b) => (b.likes || 0) - (a.likes || 0))
     .slice(0, 3)
 
-  // 오늘 / 이번주 분리
+  /* ==========================================
+     📆 오늘 & 이번주 일정 분리
+  ========================================== */
   const todayItems = calendar.filter((c) => c.diffDays === 0)
   const weekItems = calendar.filter((c) => c.diffDays > 0)
 
-  // 요일별 그룹 (월~일 순서)
   const weekdayOrder = [1, 2, 3, 4, 5, 6, 0]
   const weekdayLabels: Record<number, string> = {
     0: '일',
@@ -128,6 +153,7 @@ export default function HomePage() {
     5: [],
     6: [],
   }
+
   weekItems.forEach((item) => {
     weekByWeekday[item.weekdayIndex].push(item)
   })
@@ -143,7 +169,7 @@ export default function HomePage() {
         boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
       }}
     >
-      {/* ------------------ 상단 제목 ------------------ */}
+      {/* ------------------ 상단 ------------------ */}
       <h2
         style={{
           fontSize: 'clamp(20px, 4vw, 28px)',
@@ -167,7 +193,7 @@ export default function HomePage() {
         학생 생활을 한눈에 확인하세요 📚
       </p>
 
-      {/* ================== 오늘 일정 ================== */}
+      {/* ------------------ 오늘 일정 ------------------ */}
       <section style={{ marginBottom: '26px' }}>
         <h3
           style={{
@@ -233,7 +259,7 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* ================== 이번 주 일정 (오늘 아래, 요일 가로줄 + 사이즈 업) ================== */}
+      {/* ------------------ 이번 주 일정 ------------------ */}
       <section style={{ marginBottom: '36px' }}>
         <h3
           style={{
@@ -269,13 +295,12 @@ export default function HomePage() {
                     background: '#F5FBFF',
                     borderRadius: '14px',
                     padding: '10px 10px 12px',
-                    minHeight: '135px', // ▶ 크기 키움
+                    minHeight: '135px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '6px',
                   }}
                 >
-                  {/* 요일 헤더 */}
                   <div
                     style={{
                       textAlign: 'center',
@@ -295,7 +320,6 @@ export default function HomePage() {
                     {weekdayLabels[wIdx]}
                   </div>
 
-                  {/* 요일별 일정 */}
                   {list.length === 0 ? (
                     <span
                       style={{
@@ -367,7 +391,7 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* ------------------ 📚 오늘의 시간표 ------------------ */}
+      {/* ------------------ 오늘 시간표 ------------------ */}
       <section style={{ marginBottom: '36px' }}>
         <h3
           style={{
@@ -385,10 +409,10 @@ export default function HomePage() {
         <TodayTimetable today={today} />
       </section>
 
-      {/* ------------------ 🗓 주간 시간표 미리보기 ------------------ */}
+      {/* ------------------ 주간 시간표 ------------------ */}
       <TimetablePreview />
 
-      {/* ------------------ 🔥 인기 게시물 ------------------ */}
+      {/* ------------------ 인기 게시물 ------------------ */}
       <section style={{ marginTop: '36px' }}>
         <h3
           style={{
