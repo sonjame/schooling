@@ -146,13 +146,25 @@ export default function TimetablePage() {
   const exportImage = async () => {
     if (!tableRef.current) return
 
-    const canvas = await html2canvas(tableRef.current, {
+    // 📌 캡처 전 width 고정
+    const tableEl = tableRef.current
+    const prevWidth = tableEl.style.width
+
+    // 실제 렌더링 width를 사용하도록 고정
+    const actualWidth = tableEl.scrollWidth
+    tableEl.style.width = actualWidth + 'px'
+
+    // html2canvas로 캡처
+    const canvas = await html2canvas(tableEl, {
       scale: 2,
-      width: 1000,
-      windowWidth: 1000,
       backgroundColor: '#ffffff',
+      width: actualWidth,
     })
 
+    // 원래 width 복구
+    tableEl.style.width = prevWidth
+
+    // 다운로드
     const link = document.createElement('a')
     const yyyy = new Date().getFullYear()
     const mm = String(new Date().getMonth() + 1).padStart(2, '0')
