@@ -24,7 +24,6 @@ const DEFAULT_SUBJECTS = [
   '한국사',
 ]
 
-// 기본 과목 색상
 const SUBJECT_COLORS: Record<string, string> = {
   국어: '#FFCDD2',
   수학: '#BBDEFB',
@@ -39,18 +38,13 @@ const SUBJECT_COLORS: Record<string, string> = {
   한국사: '#E0E0E0',
 }
 
-// ✔ 랜덤 파스텔 색 생성
-const generatePastelColor = () => {
-  return `hsl(${Math.floor(Math.random() * 360)}, 70%, 85%)`
-}
+const generatePastelColor = () =>
+  `hsl(${Math.floor(Math.random() * 360)}, 70%, 85%)`
 
-// ✔ 과목 색상 (localStorage 저장하여 재사용)
 const getSubjectColor = (subject: string) => {
   if (SUBJECT_COLORS[subject]) return SUBJECT_COLORS[subject]
-
   const saved = localStorage.getItem(`subject-color-${subject}`)
   if (saved) return saved
-
   const newColor = generatePastelColor()
   localStorage.setItem(`subject-color-${subject}`, newColor)
   return newColor
@@ -78,6 +72,21 @@ export default function TimetablePage() {
   /* ----------------- 초기 로드 ----------------- */
   useEffect(() => {
     try {
+      const params = new URLSearchParams(window.location.search)
+      const encoded = params.get('data')
+
+      if (encoded) {
+        try {
+          const decoded = decodeURIComponent(atob(encoded))
+          const parsed = JSON.parse(decoded)
+          setClasses(parsed)
+          localStorage.setItem('timetable', JSON.stringify(parsed))
+          return
+        } catch (e) {
+          console.error('URL 파싱 오류', e)
+        }
+      }
+
       const saved = localStorage.getItem('timetable')
       if (saved) setClasses(JSON.parse(saved))
     } catch {
@@ -98,7 +107,6 @@ export default function TimetablePage() {
 
   const saveEdit = () => {
     if (!edit) return
-
     if (!edit.subject.trim()) {
       const filtered = classes.filter(
         (c) => !(c.day === edit.day && c.period === edit.period)
@@ -127,9 +135,8 @@ export default function TimetablePage() {
   /* ----------------- 수업 추가 ----------------- */
   const saveAdd = () => {
     const { day, start, end, subject, teacher, room } = addForm
-
-    if (!subject.trim()) return alert('과목을 입력하거나 선택해주세요.')
-    if (end < start) return alert('종료 교시는 시작 교시보다 앞설 수 없습니다.')
+    if (!subject.trim()) return alert('과목을 입력해주세요.')
+    if (end < start) return alert('종료 교시가 더 빠릅니다.')
 
     let next = [...classes]
 
@@ -142,41 +149,68 @@ export default function TimetablePage() {
     setAddOpen(false)
   }
 
-  /* ----------------- 이미지 저장 ----------------- */
-  const exportImage = async () => {
+  /* ----------------- 이미지 저장 + 공유 동시에 실행 ----------------- */
+  const saveAndShareImage = async () => {
     if (!tableRef.current) return
 
-    // 📌 캡처 전 width 고정
+    // URL 생성
+    const json = JSON.stringify(classes)
+    const encoded = btoa(encodeURIComponent(json))
+    const shareURL = `${window.location.origin}/timetable?data=${encoded}`
+
+    // 캡처 준비
     const tableEl = tableRef.current
     const prevWidth = tableEl.style.width
-
-    // 실제 렌더링 width를 사용하도록 고정
     const actualWidth = tableEl.scrollWidth
     tableEl.style.width = actualWidth + 'px'
 
-    // html2canvas로 캡처
+    // 캡처
     const canvas = await html2canvas(tableEl, {
       scale: 2,
       backgroundColor: '#ffffff',
       width: actualWidth,
     })
 
-    // 원래 width 복구
     tableEl.style.width = prevWidth
 
-    // 다운로드
+    /* 이미지 저장 */
     const link = document.createElement('a')
     const yyyy = new Date().getFullYear()
     const mm = String(new Date().getMonth() + 1).padStart(2, '0')
     const dd = String(new Date().getDate()).padStart(2, '0')
-
     link.download = `${yyyy}-${mm}-${dd}_시간표.png`
     link.href = canvas.toDataURL()
     link.click()
+
+    /* 이미지 공유 */
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/png')
+    )
+    if (!blob) return alert('이미지 변환 실패')
+
+    const file = new File([blob], 'timetable.png', { type: 'image/png' })
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: '내 시간표',
+          text: '시간표입니다!',
+          url: shareURL,
+          files: [file],
+        })
+        return
+      } catch (e) {
+        console.error('공유 실패:', e)
+      }
+    }
+
+    // fallback
+    navigator.clipboard.writeText(shareURL)
+    alert('공유 미지원 환경입니다. URL 복사 완료!')
   }
 
   /* ==========================================================
-      화면 출력
+        화면 출력
   ========================================================== */
   return (
     <div style={wrap}>
@@ -186,18 +220,20 @@ export default function TimetablePage() {
         <button style={btn('#4FC3F7')} onClick={() => setAddOpen(true)}>
           ➕ 수업 추가하기
         </button>
-        <button style={btn('#81C784')} onClick={exportImage}>
-          📸 시간표 저장 (이미지)
+
+        {/* 🔥 오직 이 버튼만 남김! */}
+        <button style={btn('#FF9800')} onClick={saveAndShareImage}>
+          📸 저장 + 📤 공유 (동시에)
         </button>
       </div>
 
       <div
         ref={tableRef}
         style={{
-          width: '100%', // 모바일에서는 100%
-          maxWidth: '1000px', // 데스크탑까지는 1000px
+          width: '100%',
+          maxWidth: '1000px',
           margin: '0 auto',
-          overflowX: 'auto', // 혹시 초과하면 부드럽게 스크롤
+          overflowX: 'auto',
         }}
       >
         <table style={tableCss}>
@@ -239,9 +275,7 @@ export default function TimetablePage() {
                       {cell ? (
                         <div>
                           <strong
-                            style={{
-                              fontSize: 'clamp(10px, 1.4vw, 16px)',
-                            }}
+                            style={{ fontSize: 'clamp(10px, 1.4vw, 16px)' }}
                           >
                             {cell.subject}
                           </strong>
@@ -542,7 +576,6 @@ const th: React.CSSProperties = {
 const periodTh: React.CSSProperties = {
   ...th,
   fontWeight: 700,
-  background: '#E3F2FD',
 }
 
 const overlay: React.CSSProperties = {
