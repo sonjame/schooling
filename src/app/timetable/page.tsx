@@ -158,26 +158,32 @@ export default function TimetablePage() {
     const encoded = btoa(encodeURIComponent(json))
     const shareURL = `${window.location.origin}/timetable?data=${encoded}`
 
-    // 캡처 준비
     const tableEl = tableRef.current
-    const prevWidth = tableEl.style.width
-    const actualWidth = tableEl.scrollWidth
-    tableEl.style.width = actualWidth + 'px'
 
-    // 캡처
+    /* 🔥 캡처용 width 임시 고정 (PC/모바일 동일 크기) */
+    const prevWidth = tableEl.style.width
+    tableEl.style.width = '1000px' // 고정폭
+    tableEl.style.maxWidth = '1000px'
+
+    // html2canvas 캡처
     const canvas = await html2canvas(tableEl, {
       scale: 2,
       backgroundColor: '#ffffff',
-      width: actualWidth,
+      width: 1000, // 캡처 가로 크기 고정
     })
 
-    tableEl.style.width = prevWidth
+    // 원래 스타일 복구
+    tableEl.style.width = prevWidth || ''
+    tableEl.style.maxWidth = ''
+
+    /* ▼ 아래는 기존 그대로 (이미지 저장 + 공유) */
 
     /* 이미지 저장 */
     const link = document.createElement('a')
     const yyyy = new Date().getFullYear()
     const mm = String(new Date().getMonth() + 1).padStart(2, '0')
     const dd = String(new Date().getDate()).padStart(2, '0')
+
     link.download = `${yyyy}-${mm}-${dd}_시간표.png`
     link.href = canvas.toDataURL()
     link.click()
@@ -204,7 +210,6 @@ export default function TimetablePage() {
       }
     }
 
-    // fallback
     navigator.clipboard.writeText(shareURL)
     alert('공유 미지원 환경입니다. URL 복사 완료!')
   }
