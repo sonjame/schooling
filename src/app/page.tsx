@@ -216,7 +216,7 @@ export default function HomePage() {
           textAlign: 'center',
         }}
       >
-        💙 학교 커뮤니티 메인
+        💙 학교 커뮤니티 메인 💙
       </h2>
 
       <p
