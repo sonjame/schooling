@@ -1,412 +1,430 @@
-'use client'
+"use client";
 
-const API_KEY = '32cbd596f1b64e7abc94e1eb85ca5a06'
+import { useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
+const API_KEY = "32cbd596f1b64e7abc94e1eb85ca5a06";
 
 export default function SignupPage() {
-  const [username, setUsername] = useState('')
-  const [name, setName] = useState('')
-  const [password, setPassword] = useState('')
-  const [password2, setPassword2] = useState('')
+  const searchParams = useSearchParams();
 
-  const [school, setSchool] = useState('')
-  const [schoolCode, setSchoolCode] = useState('')
-  const [eduCode, setEduCode] = useState('')
-  const [level, setLevel] = useState('')
+  // ⭐ 입력 값
+  const [verified, setVerified] = useState(false);
 
-  const [searchResults, setSearchResults] = useState<any[]>([])
-  const [isSearching, setIsSearching] = useState(false)
+  const [realName, setRealName] = useState(""); // 🔥 실명
+  const [username, setUsername] = useState(""); // 로그인 아이디
+  const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
 
-  const [grade, setGrade] = useState('1학년')
-  const [showPassword, setShowPassword] = useState(false)
-  const [users, setUsers] = useState<any[]>([])
+  const [school, setSchool] = useState("");
+  const [schoolCode, setSchoolCode] = useState("");
+  const [eduCode, setEduCode] = useState("");
+  const [level, setLevel] = useState("");
 
-  // 학년 확인 모달
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [grade, setGrade] = useState("1학년");
 
-  // ⭐ 새로운 블루 모달 (alert 대체)
-  const [showModal, setShowModal] = useState(false)
-  const [modalMessage, setModalMessage] = useState('')
+  const [users, setUsers] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+
+  // 🔹 소셜로그인에서 넘어온 값 적용
+  useEffect(() => {
+    const socialName = searchParams.get("name");
+    const socialEmail = searchParams.get("email");
+    const socialId = searchParams.get("id");
+
+    if (socialName && socialEmail && socialId) {
+      localStorage.setItem(
+        "socialUser",
+        JSON.stringify({
+          id: socialId,
+          name: socialName,
+          email: socialEmail,
+        })
+      );
+
+      // 🔥 입력칸에 자동으로 채우는 코드 제거 (아무것도 넣지 않음)
+      // setRealName(socialName);
+      // setUsername(socialName);
+    }
+  }, [searchParams]);
 
   // 기존 유저 불러오기
   useEffect(() => {
-    const savedUsers = JSON.parse(localStorage.getItem('users') || '[]')
-    setUsers(savedUsers)
-  }, [])
+    const saved = JSON.parse(localStorage.getItem("users") || "[]");
+    setUsers(saved);
+  }, []);
 
-  // ⭐ 통합 모달 함수
+  // 인증 여부 확인
+  useEffect(() => {
+    const v = searchParams.get("verified");
+    setVerified(v === "1");
+  }, [searchParams]);
+
+  // 공통 alert
   const showAlert = (msg: string) => {
-    setModalMessage(msg)
-    setShowModal(true)
-    setTimeout(() => setShowModal(false), 1500)
-  }
+    setModalMessage(msg);
+    setShowModal(true);
+    setTimeout(() => setShowModal(false), 1500);
+  };
+
+  // 인증 방식들
+  const handleKakaoAuth = () => (window.location.href = "/api/auth/kakao");
+  const handleGoogleAuth = () => (window.location.href = "/api/auth/google");
+  const handleEmailAuth = () => (window.location.href = "/auth/email");
 
   // 학교 검색
   const searchSchool = async (keyword: string) => {
-    setSchool(keyword)
-    setIsSearching(true)
+    setSchool(keyword);
+    setIsSearching(true);
 
     if (keyword.trim().length < 2) {
-      setSearchResults([])
-      return
+      setSearchResults([]);
+      return;
     }
 
     try {
       const url = `https://open.neis.go.kr/hub/schoolInfo?KEY=${API_KEY}&Type=json&pIndex=1&pSize=20&SCHUL_NM=${encodeURIComponent(
         keyword
-      )}`
-      const res = await fetch(url)
-      const data = await res.json()
+      )}`;
+      const res = await fetch(url);
+      const data = await res.json();
 
       if (data.schoolInfo && data.schoolInfo[1]?.row) {
-        setSearchResults(data.schoolInfo[1].row)
+        setSearchResults(data.schoolInfo[1].row);
       } else {
-        setSearchResults([])
+        setSearchResults([]);
       }
     } catch (err) {
-      console.error(err)
+      console.error(err);
     }
-  }
+  };
 
-  // 학교 선택
   const selectSchool = (item: any) => {
-    setSchool(item.SCHUL_NM)
-    setSchoolCode(item.SD_SCHUL_CODE)
-    setEduCode(item.ATPT_OFCDC_SC_CODE)
-    setLevel(item.SCHUL_KND_SC_NM)
+    setSchool(item.SCHUL_NM);
+    setSchoolCode(item.SD_SCHUL_CODE);
+    setEduCode(item.ATPT_OFCDC_SC_CODE);
+    setLevel(item.SCHUL_KND_SC_NM);
+    setSearchResults([]);
+    setIsSearching(false);
+  };
 
-    setSearchResults([])
-    setIsSearching(false)
-  }
-
-  // 최종 회원가입 제출
-  const handleFinalSubmit = () => {
-    const exists = users.find((u) => u.username === username)
-
-    if (exists) {
-      showAlert('이미 존재하는 아이디입니다.')
-      return
+  // 회원가입 제출 전 체크
+  const handleSubmit = () => {
+    if (!realName || !username || !password || !password2 || !school) {
+      showAlert("모든 정보를 입력해주세요.");
+      return;
     }
 
+    if (password !== password2) {
+      showAlert("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    setShowConfirm(true);
+  };
+
+  // 회원가입 최종 처리
+  const handleFinalSubmit = () => {
+    const exists = users.find((u) => u.username === username);
+    if (exists) {
+      showAlert("이미 존재하는 아이디입니다.");
+      return;
+    }
+
+    const social = JSON.parse(localStorage.getItem("socialUser") || "{}");
+
+    // 🔥 최종 저장될 회원정보
     const newUser = {
-      username,
-      name,
+      username, // 로그인용 아이디
       password,
+
+      // 🔥 실명
+      name: realName,
+
+      // 🔥 소셜에서 받아온 이메일
+      email: social.email || "",
+
+      social_id: social.id || null,
+
       school,
       schoolCode,
       eduCode,
       level,
       grade,
+
       verified_student: false,
-    }
+    };
 
-    const updated = [...users, newUser]
+    const updated = [...users, newUser];
+    localStorage.setItem("users", JSON.stringify(updated));
 
-    localStorage.setItem('users', JSON.stringify(updated))
+    showAlert("회원가입 완료!");
+    setTimeout(() => (window.location.href = "/auth/login"), 1500);
+  };
 
-    showAlert('회원가입 완료! 로그인해주세요.')
-
-    setTimeout(() => {
-      window.location.href = '/auth/login'
-    }, 1500)
-  }
-
-  // 회원가입 → 중간 체크 모달
-  const handleSubmit = () => {
-    if (!username || !name || !password || !password2 || !school) {
-      showAlert('모든 정보를 입력해주세요.')
-      return
-    }
-
-    if (password !== password2) {
-      showAlert('비밀번호가 일치하지 않습니다.')
-      return
-    }
-
-    setShowConfirm(true)
-  }
-
-  const inputWrapper: React.CSSProperties = {
-    width: '100%',
-    position: 'relative',
-    marginBottom: '16px',
-  }
+  // 스타일
+  const cardStyle: React.CSSProperties = {
+    width: "420px",
+    background: "white",
+    borderRadius: "16px",
+    padding: "40px 30px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+  };
 
   const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: '1.5px solid #ccc',
-    fontSize: '15px',
-    outlineColor: '#4FC3F7',
-    boxSizing: 'border-box',
-  }
+    width: "100%",
+    padding: "12px",
+    borderRadius: "8px",
+    border: "1.5px solid #ccc",
+    fontSize: "15px",
+    outlineColor: "#4FC3F7",
+    boxSizing: "border-box",
+  };
 
   return (
     <>
       <div
         style={{
-          minHeight: '100vh',
-          background: '#E3F2FD',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '20px',
+          minHeight: "100vh",
+          background: "#E3F2FD",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "20px",
         }}
       >
-        <div
-          style={{
-            width: '420px',
-            background: 'white',
-            borderRadius: '16px',
-            padding: '40px 30px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          }}
-        >
-          <h2
-            style={{
-              fontSize: '22px',
-              fontWeight: 700,
-              color: '#4FC3F7',
-              textAlign: 'center',
-              marginBottom: '10px',
-            }}
-          >
-            📝 회원가입
-          </h2>
+        {/* STEP 1: 인증 */}
+        {!verified && (
+          <div style={cardStyle}>
+            <h2
+              style={{
+                fontSize: "22px",
+                fontWeight: 700,
+                color: "#4FC3F7",
+                marginBottom: "6px",
+              }}
+            >
+              🔐 본인 인증
+            </h2>
+            <p style={{ fontSize: "14px", color: "#555", marginBottom: "20px" }}>
+              회원가입을 위해 하나를 선택해주세요.
+            </p>
 
-          {/* 아이디 */}
-          <div style={inputWrapper}>
+            <button onClick={handleKakaoAuth} className="auth-btn kakao">
+              <img
+                src="https://upload.wikimedia.org/wikipedia/commons/e/e3/KakaoTalk_logo.svg"
+                alt="kakao"
+                className="auth-icon"
+              />
+              카카오로 계속하기
+            </button>
+
+            <button onClick={handleGoogleAuth} className="auth-btn google">
+              <img
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="google"
+                className="auth-icon"
+              />
+              Google로 계속하기
+            </button>
+
+            <button onClick={handleEmailAuth} className="auth-btn email">
+              📧 이메일 인증
+            </button>
+          </div>
+        )}
+
+        {/* STEP 2: 회원가입 입력 */}
+        {verified && (
+          <div style={cardStyle}>
+            <h2
+              style={{
+                fontSize: "22px",
+                fontWeight: 700,
+                color: "#4FC3F7",
+                textAlign: "center",
+                marginBottom: "10px",
+              }}
+            >
+              📝 회원가입
+            </h2>
+
+            {/* 🔥 실명 입력칸 */}
             <input
               style={inputStyle}
-              type="text"
+              placeholder="이름을 입력하세요 (실명)"
+              value={realName}
+              onChange={(e) => setRealName(e.target.value)}
+            />
+
+            {/* 아이디 */}
+            <input
+              style={{ ...inputStyle, marginTop: "12px" }}
               placeholder="아이디를 입력하세요"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
 
-            {/* ⭐ 이름 입력 필드 추가 */}
-            <input
-              style={{ ...inputStyle, marginTop: '12px' }}
-              placeholder="이름을 입력하세요"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
+            {/* 비밀번호 */}
+            <div style={{ position: "relative", marginTop: "12px" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="비밀번호를 입력하세요"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ ...inputStyle, paddingRight: "48px" }}
+              />
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  cursor: "pointer",
+                }}
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </span>
+            </div>
 
-          {/* 비밀번호 */}
-          <div style={inputWrapper}>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="비밀번호를 입력하세요"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ ...inputStyle, paddingRight: '48px' }}
-            />
-            <span
-              onClick={() => setShowPassword(!showPassword)}
-              style={{
-                position: 'absolute',
-                right: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                cursor: 'pointer',
-                color: '#4FC3F7',
-                fontSize: '16px',
-              }}
-            >
-              {showPassword ? '🙈' : '👁️'}
-            </span>
-          </div>
-
-          {/* 비밀번호 확인 */}
-          <div style={inputWrapper}>
             <input
               type="password"
               placeholder="비밀번호를 다시 입력하세요"
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* 학교 검색 자동완성 */}
-          <div style={inputWrapper}>
-            <input
-              type="text"
-              placeholder="학교명을 입력하세요 (자동완성)"
-              value={school}
-              onChange={(e) => searchSchool(e.target.value)}
-              style={inputStyle}
+              style={{ ...inputStyle, marginTop: "12px" }}
             />
 
-            {isSearching && searchResults.length > 0 && (
-              <ul
-                style={{
-                  position: 'absolute',
-                  top: '50px',
-                  left: 0,
-                  width: '100%',
-                  background: 'white',
-                  border: '1px solid #ccc',
-                  borderRadius: '8px',
-                  maxHeight: '180px',
-                  overflowY: 'auto',
-                  zIndex: 100,
-                  padding: 0,
-                  margin: 0,
-                  listStyle: 'none',
-                }}
-              >
-                {searchResults.map((item) => (
-                  <li
-                    key={item.SD_SCHUL_CODE}
-                    onClick={() => selectSchool(item)}
-                    style={{
-                      padding: '10px 12px',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid #eee',
-                      fontSize: '14px',
-                    }}
-                  >
-                    <strong>{item.SCHUL_NM}</strong>
-                    <span style={{ color: '#777', marginLeft: '6px' }}>
-                      ({item.LCTN_SC_NM})
-                    </span>
-                    <span style={{ color: '#4FC3F7', marginLeft: '6px' }}>
-                      / {item.SCHUL_KND_SC_NM}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+            {/* 학교 검색 */}
+            <div style={{ position: "relative", marginTop: "12px" }}>
+              <input
+                style={inputStyle}
+                placeholder="학교명을 입력하세요 (자동완성)"
+                value={school}
+                onChange={(e) => searchSchool(e.target.value)}
+              />
 
-          {/* 학년 */}
-          <select
-            style={{ ...inputStyle, marginBottom: '6px' }}
-            value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-          >
-            <option>1학년</option>
-            <option>2학년</option>
-            <option>3학년</option>
-          </select>
+              {isSearching && searchResults.length > 0 && (
+                <ul
+                  style={{
+                    position: "absolute",
+                    top: "50px",
+                    width: "100%",
+                    background: "white",
+                    border: "1px solid #ccc",
+                    borderRadius: "8px",
+                    maxHeight: "180px",
+                    overflowY: "auto",
+                    listStyle: "none",
+                    margin: 0,
+                    padding: 0,
+                    zIndex: 100,
+                  }}
+                >
+                  {searchResults.map((item) => (
+                    <li
+                      key={item.SD_SCHUL_CODE}
+                      onClick={() => selectSchool(item)}
+                      style={{
+                        padding: "10px 12px",
+                        cursor: "pointer",
+                        borderBottom: "1px solid #eee",
+                      }}
+                    >
+                      <strong>{item.SCHUL_NM}</strong>
+                      <span style={{ color: "#777", marginLeft: "6px" }}>
+                        ({item.LCTN_SC_NM})
+                      </span>
+                      <span style={{ color: "#4FC3F7", marginLeft: "6px" }}>
+                        / {item.SCHUL_KND_SC_NM}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
-          <p
-            style={{ marginBottom: '20px', fontSize: '13px', color: '#d32f2f' }}
-          >
-            ⚠️ 한번 선택한 학년은 변경할 수 없습니다.
-            <br /> 다시 한번 확인해주세요.
-          </p>
-
-          {/* 회원가입 버튼 */}
-          <button
-            onClick={handleSubmit}
-            style={{
-              width: '100%',
-              background: '#4FC3F7',
-              padding: '12px',
-              borderRadius: '8px',
-              border: 'none',
-              color: 'white',
-              fontSize: '16px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              marginTop: '10px',
-            }}
-          >
-            회원가입 완료
-          </button>
-
-          <p
-            style={{
-              textAlign: 'center',
-              marginTop: '20px',
-              fontSize: '14px',
-            }}
-          >
-            이미 계정이 있으신가요?{' '}
-            <Link
-              href="/auth/login"
-              style={{ color: '#4FC3F7', fontWeight: 600 }}
+            <select
+              style={{ ...inputStyle, marginTop: "12px" }}
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
             >
-              로그인
-            </Link>
-          </p>
-        </div>
+              <option>1학년</option>
+              <option>2학년</option>
+              <option>3학년</option>
+            </select>
 
-        {/* 학년 확인 모달 */}
-        {showConfirm && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              background: 'rgba(0,0,0,0.4)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              zIndex: 999,
-            }}
-          >
-            <div
+            <p style={{ fontSize: "13px", color: "#d32f2f", marginTop: "6px" }}>
+              ⚠️ 한번 선택한 학년은 변경할 수 없습니다.
+            </p>
+
+            <button
+              onClick={handleSubmit}
               style={{
-                width: '340px',
-                background: 'white',
-                padding: '20px',
-                borderRadius: '12px',
-                textAlign: 'center',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                width: "100%",
+                background: "#4FC3F7",
+                padding: "12px",
+                borderRadius: "8px",
+                border: "none",
+                color: "white",
+                fontSize: "16px",
+                fontWeight: 600,
+                cursor: "pointer",
+                marginTop: "20px",
               }}
             >
-              <h3 style={{ marginBottom: '10px', color: '#333' }}>학년 확인</h3>
-              <p style={{ fontSize: '14px', color: '#555' }}>
-                선택한 학년은 가입 후 변경할 수 없습니다.
-                <br />
-                <br />
-                <strong>{grade}</strong> 이 맞습니까?
-              </p>
+              회원가입 완료
+            </button>
 
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => setShowConfirm(false)}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    background: '#ccc',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  취소
-                </button>
+            <p
+              style={{
+                textAlign: "center",
+                marginTop: "20px",
+                fontSize: "14px",
+              }}
+            >
+              이미 계정이 있으신가요?
+              <Link
+                href="/auth/login"
+                style={{ color: "#4FC3F7", fontWeight: 600 }}
+              >
+                {" "}
+                로그인
+              </Link>
+            </p>
 
-                <button
-                  onClick={handleFinalSubmit}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    background: '#4FC3F7',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  네, 맞아요
-                </button>
+            {/* 학년 확인 모달 */}
+            {showConfirm && (
+              <div className="confirm-backdrop">
+                <div className="confirm-box">
+                  <div className="confirm-icon">❗</div>
+                  <p className="confirm-text">{grade} 이 맞습니까?</p>
+                  <div className="confirm-buttons">
+                    <button
+                      className="cancel-btn"
+                      onClick={() => setShowConfirm(false)}
+                    >
+                      취소
+                    </button>
+                    <button className="ok-btn" onClick={handleFinalSubmit}>
+                      확인
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
-        {/* ⭐ 블루 모달 UI(로그인과 동일 스타일) */}
+        {/* 알림 모달 */}
         {showModal && (
           <div className="modal-backdrop">
             <div className="modal-box">
@@ -417,51 +435,105 @@ export default function SignupPage() {
         )}
       </div>
 
-      {/* 스타일 */}
+      {/* 일부 스타일 그대로 유지 */}
       <style jsx>{`
-        .modal-backdrop {
+        .auth-btn {
+          width: 100%;
+          height: 48px;
+          padding: 0 14px;
+          display: flex;
+          align-items: center;
+          border-radius: 10px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          border: none;
+          margin-bottom: 12px;
+          justify-content: flex-start;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-icon {
+          width: 22px;
+          height: 22px;
+          margin-right: 12px;
+        }
+
+        .google {
+          background: #ffffff;
+          border: 1px solid #ddd;
+          color: #444;
+        }
+
+        .kakao {
+          background: #fee500;
+          color: #3c1e1e;
+        }
+
+        .email {
+          background: #e3f2fd;
+          border: 1px solid #90caf9;
+          color: #1976d2;
+        }
+
+        .modal-backdrop,
+        .confirm-backdrop {
           position: fixed;
           top: 0;
           left: 0;
           width: 100%;
           height: 100%;
           background: rgba(0, 0, 0, 0.35);
-          backdrop-filter: blur(4px);
+          backdrop-filter: blur(3px);
           display: flex;
           justify-content: center;
           align-items: center;
-          z-index: 9999;
         }
 
-        .modal-box {
-          background: #ffffff;
-          padding: 22px 28px;
-          border-radius: 12px;
-          border: 2px solid #4fc3f7;
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        .modal-box,
+        .confirm-box {
+          background: white;
+          padding: 30px;
+          border-radius: 16px;
           text-align: center;
-          animation: fadeIn 0.25s ease-out;
+          border: 2px solid #4fc3f7;
         }
 
-        .modal-icon {
-          color: #4fc3f7;
-          font-size: 32px;
-          font-weight: bold;
-          margin-bottom: 6px;
+        .confirm-buttons {
+          display: flex;
+          gap: 12px;
+          margin-top: 16px;
         }
 
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-      `}</style>
-    </>
-  )
+        .cancel-btn,
+.ok-btn {
+  flex: 1;
+  height: 42px;               /* 버튼 높이 추가 */
+  padding: 0;                 /* 패딩을 0으로 변경 → flex 중앙정렬 효과 확실 */
+  
+  display: flex;
+  align-items: center;    
+  justify-content: center;
+
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  box-sizing: border-box;     /* 크기 계산 안정화 */
 }
 
+.cancel-btn {
+  background: #e2e2e2;
+  color: #333;
+}
+
+.ok-btn {
+  background: #4fc3f7;
+  color: white;
+}
+
+      `}</style>
+    </>
+  );
+}
