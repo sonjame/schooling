@@ -58,6 +58,8 @@ export default function TimetablePage() {
   const [edit, setEdit] = useState<ClassItem | null>(null)
 
   const [addOpen, setAddOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+
   const [addForm, setAddForm] = useState({
     day: '월',
     start: 1,
@@ -99,7 +101,99 @@ export default function TimetablePage() {
     localStorage.setItem('timetable', JSON.stringify(next))
   }
 
-  /* ----------------- 셀 클릭 시 수정 ----------------- */
+  /* ----------------- URL 생성 함수 ----------------- */
+  const getShareURL = () => {
+    const json = JSON.stringify(classes)
+    const encoded = btoa(encodeURIComponent(json))
+    return `${window.location.origin}/timetable?data=${encoded}`
+  }
+
+  /* ----------------- 캡처 함수 ----------------- */
+  const captureImage = async () => {
+    if (!tableRef.current) return null
+    const tableEl = tableRef.current
+
+    const prevWidth = tableEl.style.width
+    tableEl.style.width = '1000px'
+    tableEl.style.maxWidth = '1000px'
+
+    const canvas = await html2canvas(tableEl, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      width: 1000,
+    })
+
+    tableEl.style.width = prevWidth || ''
+    tableEl.style.maxWidth = ''
+
+    return canvas
+  }
+
+  /* ----------------- 이미지 저장 ----------------- */
+  const saveImage = async () => {
+    const canvas = await captureImage()
+    if (!canvas) return alert('캡처 실패')
+
+    const link = document.createElement('a')
+    const yyyy = new Date().getFullYear()
+    const mm = String(new Date().getMonth() + 1).padStart(2, '0')
+    const dd = String(new Date().getDate()).padStart(2, '0')
+
+    link.download = `${yyyy}-${mm}-${dd}_시간표.png`
+    link.href = canvas.toDataURL()
+    link.click()
+  }
+
+  /* ----------------- URL 공유 ----------------- */
+  const shareURL = async () => {
+    const url = getShareURL()
+    try {
+      await navigator.share({
+        title: '내 시간표',
+        text: '시간표입니다!',
+        url,
+      })
+    } catch {
+      navigator.clipboard.writeText(url)
+      alert('공유 미지원 환경입니다. URL 복사 완료!')
+    }
+  }
+
+  /* ----------------- 이미지 + URL 동시에 ----------------- */
+  const saveImageAndShare = async () => {
+    const canvas = await captureImage()
+    if (!canvas) return alert('캡처 실패')
+
+    const link = document.createElement('a')
+    link.download = 'timetable.png'
+    link.href = canvas.toDataURL()
+    link.click()
+
+    const url = getShareURL()
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/png')
+    )
+    if (!blob) return alert('이미지 변환 실패')
+
+    const file = new File([blob], 'timetable.png', { type: 'image/png' })
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: '내 시간표',
+          text: '시간표입니다!',
+          url,
+          files: [file],
+        })
+        return
+      } catch {}
+    }
+
+    navigator.clipboard.writeText(url)
+    alert('공유 미지원 환경입니다. URL 복사 완료!')
+  }
+
+  /* ----------------- 셀 수정 ----------------- */
   const openEdit = (day: string, period: number) => {
     const existing = classes.find((c) => c.day === day && c.period === period)
     setEdit(existing ?? { day, period, subject: '', teacher: '', room: '' })
@@ -149,71 +243,6 @@ export default function TimetablePage() {
     setAddOpen(false)
   }
 
-  /* ----------------- 이미지 저장 + 공유 동시에 실행 ----------------- */
-  const saveAndShareImage = async () => {
-    if (!tableRef.current) return
-
-    // URL 생성
-    const json = JSON.stringify(classes)
-    const encoded = btoa(encodeURIComponent(json))
-    const shareURL = `${window.location.origin}/timetable?data=${encoded}`
-
-    const tableEl = tableRef.current
-
-    /* 🔥 캡처용 width 임시 고정 (PC/모바일 동일 크기) */
-    const prevWidth = tableEl.style.width
-    tableEl.style.width = '1000px' // 고정폭
-    tableEl.style.maxWidth = '1000px'
-
-    // html2canvas 캡처
-    const canvas = await html2canvas(tableEl, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-      width: 1000, // 캡처 가로 크기 고정
-    })
-
-    // 원래 스타일 복구
-    tableEl.style.width = prevWidth || ''
-    tableEl.style.maxWidth = ''
-
-    /* ▼ 아래는 기존 그대로 (이미지 저장 + 공유) */
-
-    /* 이미지 저장 */
-    const link = document.createElement('a')
-    const yyyy = new Date().getFullYear()
-    const mm = String(new Date().getMonth() + 1).padStart(2, '0')
-    const dd = String(new Date().getDate()).padStart(2, '0')
-
-    link.download = `${yyyy}-${mm}-${dd}_시간표.png`
-    link.href = canvas.toDataURL()
-    link.click()
-
-    /* 이미지 공유 */
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob((b) => resolve(b), 'image/png')
-    )
-    if (!blob) return alert('이미지 변환 실패')
-
-    const file = new File([blob], 'timetable.png', { type: 'image/png' })
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          title: '내 시간표',
-          text: '시간표입니다!',
-          url: shareURL,
-          files: [file],
-        })
-        return
-      } catch (e) {
-        console.error('공유 실패:', e)
-      }
-    }
-
-    navigator.clipboard.writeText(shareURL)
-    alert('공유 미지원 환경입니다. URL 복사 완료!')
-  }
-
   /* ==========================================================
         화면 출력
   ========================================================== */
@@ -226,9 +255,9 @@ export default function TimetablePage() {
           ➕ 수업 추가하기
         </button>
 
-        {/* 🔥 오직 이 버튼만 남김! */}
-        <button style={btn('#FF9800')} onClick={saveAndShareImage}>
-          📸 저장 + 📤 공유 (동시에)
+        {/* 내보내기 옵션 버튼 */}
+        <button style={btn('#FF9800')} onClick={() => setExportOpen(true)}>
+          📤 내보내기 옵션
         </button>
       </div>
 
@@ -320,6 +349,41 @@ export default function TimetablePage() {
         </table>
       </div>
 
+      {/* ----------------- 내보내기 옵션 모달 ----------------- */}
+      {exportOpen && (
+        <Modal title="내보내기 옵션" onClose={() => setExportOpen(false)}>
+          <button
+            style={btn('#4FC3F7')}
+            onClick={() => {
+              saveImage()
+              setExportOpen(false)
+            }}
+          >
+            📸 이미지 저장
+          </button>
+
+          <button
+            style={btn('#81C784')}
+            onClick={() => {
+              shareURL()
+              setExportOpen(false)
+            }}
+          >
+            🔗 URL 공유
+          </button>
+
+          <button
+            style={btn('#FFB74D')}
+            onClick={() => {
+              saveImageAndShare()
+              setExportOpen(false)
+            }}
+          >
+            📸 + 🔗 이미지 저장 & 공유
+          </button>
+        </Modal>
+      )}
+
       {/* ----------------- 수업 추가 모달 ----------------- */}
       {addOpen && (
         <Modal onClose={() => setAddOpen(false)} title="📘 수업 추가">
@@ -367,7 +431,6 @@ export default function TimetablePage() {
             </select>
           </Row>
 
-          {/* 과목 */}
           <Row label="과목">
             <div style={{ display: 'flex', gap: 6, width: '79%' }}>
               <select
@@ -519,13 +582,30 @@ function Modal({
 }) {
   return (
     <div style={overlay}>
-      <div style={modalBox}>
+      <div style={{ ...modalBox, position: 'relative' }}>
+        {/* 🔥 X 버튼 추가 */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            right: 10,
+            top: 10,
+            background: 'transparent',
+            border: 'none',
+            fontSize: 20,
+            cursor: 'pointer',
+            color: '#555',
+          }}
+        >
+          ✖
+        </button>
+
         <h3 style={modalTitle}>{title}</h3>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {children}
         </div>
       </div>
-      <div onClick={onClose} />
     </div>
   )
 }
