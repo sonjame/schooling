@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Footer from '../components/Footer'
+import LibraryRecommend from '../components/Library'
 import TimetablePreview from '../components/Dashboard/TimetablePreview'
 import Link from 'next/link'
 
@@ -32,6 +33,7 @@ export default function HomePage() {
   const [today, setToday] = useState<string>('')
   const [calendar, setCalendar] = useState<HomeCalendarItem[]>([])
 
+  // 🔵 추가된 부분: 추천도서 표시 여부
   const [showRecommend, setShowRecommend] = useState(false)
 
   useEffect(() => {
@@ -90,16 +92,14 @@ export default function HomePage() {
       const todayDate = new Date()
       const msPerDay = 1000 * 60 * 60 * 24
 
-      // 오늘 0시
       const todayZero = new Date(
         todayDate.getFullYear(),
         todayDate.getMonth(),
         todayDate.getDate()
       ).getTime()
 
-      // 👉 “이번 주”의 월요일 0시 / 일요일 24시 계산 (월~일 기준)
-      const todayWeekday = todayDate.getDay() // 0(일)~6(토)
-      const diffToMonday = (todayWeekday + 6) % 7 // 월=0, 화=1 ... 일=6
+      const todayWeekday = todayDate.getDay()
+      const diffToMonday = (todayWeekday + 6) % 7
       const weekStartZero = todayZero - diffToMonday * msPerDay
       const weekEndZero = weekStartZero + 6 * msPerDay
 
@@ -118,14 +118,10 @@ export default function HomePage() {
         const dateZero = new Date(y, m - 1, d).getTime()
         if (Number.isNaN(dateZero)) continue
 
-        // 🔹 오늘 이후가 아니면 패스 (오늘 포함)
         if (dateZero < todayZero) continue
-
-        // 🔹 이번 주 월요일~일요일을 벗어나면 패스
         if (dateZero < weekStartZero || dateZero > weekEndZero) continue
 
         const diffDays = Math.floor((dateZero - todayZero) / msPerDay)
-
         const weekdayIndex = dateObj.getDay()
         const weekdayLabel = dayNames2[weekdayIndex]
 
@@ -140,7 +136,6 @@ export default function HomePage() {
         })
       }
 
-      // 날짜 가까운 순 정렬
       upcoming.sort((a, b) => a.diffDays - b.diffDays)
       setCalendar(upcoming)
     } catch (e) {
@@ -162,7 +157,6 @@ export default function HomePage() {
   const todayItems = calendar.filter((c) => c.diffDays === 0)
   const weekItems = calendar.filter((c) => c.diffDays > 0)
 
-  // "HH:MM" → 분 단위로 변환 (정렬용)
   const timeToMinutes = (time?: string): number => {
     if (!time) return 24 * 60 + 59
     const [h, m] = time.split(':').map(Number)
@@ -170,19 +164,13 @@ export default function HomePage() {
     return h * 60 + m
   }
 
-  // ✅ 오늘 일정 정렬 (startTime 기준)
   const sortedTodayItems = [...todayItems].sort(
     (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
   )
 
-  const MAX_TODAY_ITEMS = 3
-  const visibleTodayItems = sortedTodayItems.slice(0, MAX_TODAY_ITEMS)
-  const extraTodayCount =
-    sortedTodayItems.length > MAX_TODAY_ITEMS
-      ? sortedTodayItems.length - MAX_TODAY_ITEMS
-      : 0
+  const visibleTodayItems = sortedTodayItems.slice(0, 3)
+  const extraTodayCount = Math.max(sortedTodayItems.length - 3, 0)
 
-  // ✅ 이번 주 일정 정렬 (D-day → 시간)
   const sortedWeekItems = [...weekItems].sort((a, b) => {
     if (a.diffDays === b.diffDays) {
       return timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
@@ -190,12 +178,8 @@ export default function HomePage() {
     return a.diffDays - b.diffDays
   })
 
-  const MAX_WEEK_ITEMS = 3
-  const visibleWeekItems = sortedWeekItems.slice(0, MAX_WEEK_ITEMS)
-  const extraWeekCount =
-    sortedWeekItems.length > MAX_WEEK_ITEMS
-      ? sortedWeekItems.length - MAX_WEEK_ITEMS
-      : 0
+  const visibleWeekItems = sortedWeekItems.slice(0, 3)
+  const extraWeekCount = Math.max(sortedWeekItems.length - 3, 0)
 
   return (
     <div
@@ -232,7 +216,7 @@ export default function HomePage() {
         학생 생활을 한눈에 확인하세요 📚
       </p>
 
-      {/* 🔥🔥🔥 오늘의 급식 추가 */}
+      {/* 🔥 오늘의 급식 */}
       <section style={{ marginBottom: '26px' }}>
         <Footer />
       </section>
@@ -264,7 +248,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ------------------ 오늘 일정 (3개 초과 시 + 외 N개) ------------------ */}
+      {/* ------------------ 오늘 일정 ------------------ */}
       <section style={{ marginBottom: '26px' }}>
         <h3
           style={{
@@ -350,7 +334,7 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* ------------------ 이번 주 일정 (오늘일정과 같은 카드 + 3개 초과 시 외 N개) ------------------ */}
+      {/* ------------------ 이번 주 일정 ------------------ */}
       <section style={{ marginBottom: '36px' }}>
         <h3
           style={{
