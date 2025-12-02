@@ -218,7 +218,7 @@ const SchoolAuthPage: React.FC = () => {
           <div style={styles.infoBox}>
             학교 인증을 완료하면 안전한 학교 커뮤니티를 이용할 수 있습니다.
             <br />
-            학생증 사진을 업로드하고 다음 단계에서 전화번호 인증을 진행해주세요.
+            학생증 사진을 업로드하고 다음 단계를 눌러서서 진행해주세요.
           </div>
 
           {/* 안내사항 */}
@@ -276,7 +276,7 @@ const SchoolAuthPage: React.FC = () => {
           )}
 
           <button type="button" style={styles.nextBtn}>
-            다음 단계 (전화번호 인증)
+             다음 단계
           </button>
         </div>
       </div>
