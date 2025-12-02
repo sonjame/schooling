@@ -50,13 +50,13 @@ async function fetchMeal(date: string, eduCode: string, schoolCode: string) {
     const cleanedLines = lines
       .map((line) =>
         line
-          .replace(/[①-⑳]/g, '')          // ①~⑳ 제거 (혹시 있을 경우)
+          .replace(/[①-⑳]/g, '') // ①~⑳ 제거 (혹시 있을 경우)
           .replace(/\(\s?[0-9.]+\s?\)/g, '') // (1.2.6.13) 같은 알레르기 번호 제거
-          .replace(/-\s*$/g, '')            // 라인 끝의 '-' 제거 (잡곡밥- → 잡곡밥)
-          .replace(/\s+/g, ' ')             // 중복 공백 정리
+          .replace(/-\s*$/g, '') // 라인 끝의 '-' 제거 (잡곡밥- → 잡곡밥)
+          .replace(/\s+/g, ' ') // 중복 공백 정리
           .trim()
       )
-      .filter((line) => line.length > 0)    // 빈 줄 제거
+      .filter((line) => line.length > 0) // 빈 줄 제거
 
     // 🔙 UI에서는 string[] 으로 사용
     return cleanedLines
@@ -104,25 +104,19 @@ export default function WeeklyMealPage() {
   >([])
   const [loading, setLoading] = useState(true)
 
-  // ---------------------------
-  //  회원정보 기반 학교 불러오기
-  // ---------------------------
-  const [eduCode, setEduCode] = useState('J10') // 기본값
-  const [schoolCode, setSchoolCode] = useState('7580167') // 기본값: 양주고
+  const [eduCode, setEduCode] = useState('J10')
+  const [schoolCode, setSchoolCode] = useState('7580167')
 
   useEffect(() => {
     loadGoogleResources()
 
-    // ⭐ 로그인한 사용자의 학교 불러오기
     const userSchool = localStorage.getItem('userSchool')
-
     if (userSchool && SCHOOL_DATA[userSchool]) {
       setEduCode(SCHOOL_DATA[userSchool].edu)
       setSchoolCode(SCHOOL_DATA[userSchool].code)
     }
 
     const dates = getWeekDates()
-
     Promise.all(
       dates.map(async (d) => {
         const meal = await fetchMeal(d.key, eduCode, schoolCode)
@@ -142,8 +136,13 @@ export default function WeeklyMealPage() {
         background: '#F3FAFF',
         borderRadius: '16px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+
+        /* 모바일 화면 조건 */
+        maxWidth: '900px',
+        margin: '0 auto',
       }}
     >
+      {/* 제목 */}
       <h3
         style={{
           fontSize: '18px',
@@ -156,8 +155,57 @@ export default function WeeklyMealPage() {
       >
         🍱 이번 주 급식
       </h3>
+      <style>
+        {`
+    /* --------------------------- */
+    /*   🔥 모바일 최적화 (5칸 가로 스크롤) */
+    /* --------------------------- */
+    @media (max-width: 480px) {
 
+      /* 모바일일 때는 flex row + scroll */
+      .meal-grid {
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        gap: 10px !important;
+        padding-bottom: 8px !important;
+        scrollbar-width: none;       /* Firefox */
+      }
+
+      .meal-grid::-webkit-scrollbar {
+        display: none; /* Chrome/Safari */
+      }
+
+      /* 각 급식 카드 고정 너비 */
+      .meal-card {
+        min-width: 160px !important;
+        max-width: 160px !important;
+        flex-shrink: 0 !important;
+        padding: 12px !important;
+        border-radius: 12px !important;
+      }
+
+      .meal-date {
+        font-size: 13px !important;
+        margin-bottom: 4px !important;
+      }
+
+      .meal-ul {
+        font-size: 12px !important;
+        padding-left: 14px !important;
+        line-height: 1.45 !important;
+      }
+
+      h3 {
+        font-size: 16px !important;
+      }
+    }
+  `}
+      </style>
+
+      {/* 리스트 */}
       <div
+        className="meal-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -167,6 +215,7 @@ export default function WeeklyMealPage() {
         {weekMeals.map((d, idx) => (
           <div
             key={idx}
+            className="meal-card"
             style={{
               background: 'white',
               borderRadius: '12px',
@@ -176,6 +225,7 @@ export default function WeeklyMealPage() {
             }}
           >
             <div
+              className="meal-date"
               style={{
                 fontWeight: 700,
                 color: '#0288D1',
@@ -197,6 +247,7 @@ export default function WeeklyMealPage() {
 
             {d.meal && (
               <ul
+                className="meal-ul"
                 style={{
                   margin: 0,
                   paddingLeft: '14px',
