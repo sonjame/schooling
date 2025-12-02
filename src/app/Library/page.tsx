@@ -57,7 +57,13 @@ export default function LibrarySearch() {
         {searchBooks.length > 0 && (
           <div className="result-list">
             {searchBooks.map((book: any, i) => (
-              <div key={book.isbn}>
+              <a
+                key={book.isbn}
+                href={book.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
                 <div className="book-item">
                   <img src={book.cover} className="book-cover" />
 
@@ -76,7 +82,7 @@ export default function LibrarySearch() {
                 </div>
 
                 {i !== searchBooks.length - 1 && <hr className="divider" />}
-              </div>
+              </a>
             ))}
           </div>
         )}
