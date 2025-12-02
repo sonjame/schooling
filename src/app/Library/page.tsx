@@ -1,29 +1,29 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react'
 
 export default function LibrarySearch() {
-  const [query, setQuery] = useState("");
-  const [searchBooks, setSearchBooks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState('')
+  const [searchBooks, setSearchBooks] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(1)
 
-  const PAGES = Array.from({ length: 15 }, (_, i) => i + 1);
+  const PAGES = Array.from({ length: 15 }, (_, i) => i + 1)
 
   const handleSearch = async () => {
-    if (!query.trim()) return;
-    setLoading(true);
+    if (!query.trim()) return
+    setLoading(true)
 
-    const res = await fetch(`/api/aladin/search?q=${query}&page=${page}`);
-    const data = await res.json();
+    const res = await fetch(`/api/aladin/search?q=${query}&page=${page}`)
+    const data = await res.json()
 
-    setSearchBooks(data.item || []);
-    setLoading(false);
-  };
+    setSearchBooks(data.item || [])
+    setLoading(false)
+  }
 
   useEffect(() => {
-    if (query.trim() !== "") handleSearch();
-  }, [page]);
+    if (query.trim() !== '') handleSearch()
+  }, [page])
 
   return (
     <>
@@ -65,7 +65,7 @@ export default function LibrarySearch() {
                     <div>
                       <h3 className="book-title">
                         {book.title.length > 60
-                          ? book.title.slice(0, 60) + "…"
+                          ? book.title.slice(0, 60) + '…'
                           : book.title}
                       </h3>
                       <p className="book-author">{book.author}</p>
@@ -75,9 +75,7 @@ export default function LibrarySearch() {
                   </div>
                 </div>
 
-                {i !== searchBooks.length - 1 && (
-                  <hr className="divider" />
-                )}
+                {i !== searchBooks.length - 1 && <hr className="divider" />}
               </div>
             ))}
           </div>
@@ -89,7 +87,7 @@ export default function LibrarySearch() {
             {PAGES.map((num) => (
               <button
                 key={num}
-                className={`page-btn ${page === num ? "active" : ""}`}
+                className={`page-btn ${page === num ? 'active' : ''}`}
                 onClick={() => setPage(num)}
               >
                 {num}
@@ -104,23 +102,23 @@ export default function LibrarySearch() {
         .container {
           max-width: 960px;
           margin: auto;
-          padding: 40px;
+          padding: 30px;
           text-align: center;
           font-family: Inter, sans-serif;
         }
 
         .title {
-          font-size: 48px;
+          font-size: 36px;
           font-weight: bold;
           display: flex;
           justify-content: center;
           gap: 16px;
           align-items: center;
-          margin-bottom: 60px;
+          margin-bottom: 40px;
         }
 
         .icon-large {
-          font-size: 65px;
+          font-size: 48px;
           color: #3b82f6;
         }
 
@@ -128,40 +126,40 @@ export default function LibrarySearch() {
         .search-area {
           display: flex;
           justify-content: center;
-          margin-bottom: 50px;
+          margin-bottom: 40px;
         }
 
         .search-box {
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 12px;
           width: 100%;
           max-width: 720px;
-          padding: 24px 32px;
+          padding: 16px 24px;
           background: white;
           border: 1px solid #ccc;
-          border-radius: 24px;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+          border-radius: 20px;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.06);
         }
 
         .icon {
-          font-size: 40px;
+          font-size: 30px;
           color: gray;
         }
 
         .search-input {
           flex: 1;
-          font-size: 20px;
+          font-size: 16px;
           border: none;
           outline: none;
         }
 
         .search-button {
-          padding: 12px 24px;
+          padding: 8px 18px;
           background: #2563eb;
           color: white;
-          font-size: 20px;
-          border-radius: 16px;
+          font-size: 16px;
+          border-radius: 12px;
           font-weight: 600;
           border: none;
           cursor: pointer;
@@ -180,7 +178,7 @@ export default function LibrarySearch() {
 
         /* 결과 리스트 */
         .result-list {
-          margin-top: 40px;
+          margin-top: 30px;
           max-width: 720px;
           margin-left: auto;
           margin-right: auto;
@@ -202,8 +200,8 @@ export default function LibrarySearch() {
         }
 
         .book-cover {
-          width: 180px;
-          height: 260px;
+          width: 150px;
+          height: 220px;
           object-fit: cover;
           border-radius: 16px;
           box-shadow: 0 4px 10px rgba(0,0,0,0.2);
@@ -270,5 +268,5 @@ export default function LibrarySearch() {
         }
       `}</style>
     </>
-  );
+  )
 }
