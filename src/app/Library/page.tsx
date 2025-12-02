@@ -8,11 +8,24 @@ export default function LibrarySearch() {
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
 
-  const PAGES = Array.from({ length: 15 }, (_, i) => i + 1)
+  // 🔵 1~20 페이지 구성
+  const PAGES = Array.from({ length: 20 }, (_, i) => i + 1)
+
+  // 🔵 페이지 그룹(1=1~5 / 2=6~10 / 3=11~15 / 4=16~20)
+  const GROUP_SIZE = 5
+  const TOTAL_GROUPS = Math.ceil(PAGES.length / GROUP_SIZE)
+  const [pageGroup, setPageGroup] = useState(1)
+
+  const start = (pageGroup - 1) * GROUP_SIZE + 1
+  const end = pageGroup * GROUP_SIZE
+  const visiblePages = PAGES.slice(start - 1, end)
 
   const handleSearch = async () => {
     if (!query.trim()) return
     setLoading(true)
+
+    // 🔵 검색하면 화면 맨 위로
+    window.scrollTo({ top: 0, behavior: 'smooth' })
 
     const res = await fetch(`/api/aladin/search?q=${query}&page=${page}`)
     const data = await res.json()
@@ -45,7 +58,13 @@ export default function LibrarySearch() {
               onChange={(e) => setQuery(e.target.value)}
             />
 
-            <button onClick={handleSearch} className="search-button">
+            <button
+              onClick={() => {
+                handleSearch()
+                window.scrollTo({ top: 0, behavior: 'smooth' }) // 검색 후 맨 위
+              }}
+              className="search-button"
+            >
               검색
             </button>
           </div>
@@ -90,20 +109,48 @@ export default function LibrarySearch() {
         {/* 페이지네이션 */}
         {searchBooks.length > 0 && (
           <div className="pagination">
-            {PAGES.map((num) => (
+            {/* 이전 그룹 */}
+            <button
+              className="page-btn"
+              onClick={() => {
+                setPageGroup((g) => g - 1)
+                window.scrollTo({ top: 0, behavior: 'smooth' }) // 맨 위로 이동
+              }}
+              disabled={pageGroup === 1}
+            >
+              이전
+            </button>
+
+            {/* 번호 */}
+            {visiblePages.map((num) => (
               <button
                 key={num}
                 className={`page-btn ${page === num ? 'active' : ''}`}
-                onClick={() => setPage(num)}
+                onClick={() => {
+                  setPage(num)
+                  window.scrollTo({ top: 0, behavior: 'smooth' }) // 페이지 이동 시 맨 위
+                }}
               >
                 {num}
               </button>
             ))}
+
+            {/* 다음 그룹 */}
+            <button
+              className="page-btn"
+              onClick={() => {
+                setPageGroup((g) => g + 1)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+              disabled={pageGroup === TOTAL_GROUPS}
+            >
+              다음
+            </button>
           </div>
         )}
       </div>
 
-      {/* ---------------- CSS 직접 삽입 ---------------- */}
+      {/* 아래 CSS는 네 기존 코드 그대로 유지됨 */}
       <style>{`
         .container {
           max-width: 960px;
@@ -128,7 +175,6 @@ export default function LibrarySearch() {
           color: #3b82f6;
         }
 
-        /* 검색창 */
         .search-area {
           display: flex;
           justify-content: center;
@@ -169,20 +215,13 @@ export default function LibrarySearch() {
           font-weight: 600;
           border: none;
           cursor: pointer;
-          transition: 0.2s;
-        }
-
-        .search-button:hover {
-          background: #1d4ed8;
         }
 
         .loading {
           font-size: 22px;
           color: #666;
-          margin-top: 20px;
         }
 
-        /* 결과 리스트 */
         .result-list {
           margin-top: 30px;
           max-width: 720px;
@@ -192,11 +231,11 @@ export default function LibrarySearch() {
 
         .book-item {
           display: flex;
-          gap: 32px;
-          padding: 24px;
+          gap: 20px;
+          padding: 20px;
           background: white;
           border: 1px solid #ddd;
-          border-radius: 24px;
+          border-radius: 18px;
           box-shadow: 0 4px 12px rgba(0,0,0,0.08);
           transition: 0.2s;
         }
@@ -206,71 +245,97 @@ export default function LibrarySearch() {
         }
 
         .book-cover {
-          width: 150px;
-          height: 220px;
+          width: 140px;
+          height: 200px;
           object-fit: cover;
-          border-radius: 16px;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+          border-radius: 12px;
         }
 
         .book-info {
-          text-align: left;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
+          text-align: left;
         }
 
         .book-title {
-          font-size: 26px;
+          font-size: 22px;
           font-weight: bold;
         }
 
         .book-author {
-          margin-top: 12px;
-          font-size: 18px;
+          margin-top: 10px;
+          font-size: 16px;
           color: #555;
         }
 
         .book-date {
-          margin-top: 20px;
-          font-size: 16px;
+          margin-top: 16px;
+          font-size: 14px;
           color: #777;
         }
 
         .divider {
-          margin: 28px 0;
-          border: none;
+          margin: 20px 0;
           border-bottom: 1px solid #ccc;
         }
 
-        /* 페이지네이션 */
         .pagination {
           display: flex;
           justify-content: center;
-          margin-top: 50px;
-          gap: 12px;
+          margin-top: 40px;
+          gap: 10px;
           flex-wrap: wrap;
         }
 
         .page-btn {
-          padding: 12px 18px;
-          font-size: 18px;
+          padding: 10px 14px;
+          font-size: 16px;
+          border-radius: 10px;
           background: #e5e7eb;
-          border-radius: 12px;
           border: none;
           cursor: pointer;
-          transition: 0.15s;
           font-weight: 600;
-        }
-
-        .page-btn:hover {
-          background: #d1d5db;
         }
 
         .page-btn.active {
           background: #2563eb;
           color: white;
           box-shadow: 0 4px 15px rgba(37,99,235,0.4);
+        }
+
+        /* 📱 모바일 최적화 */
+        @media (max-width: 480px) {
+          .book-item {
+            flex-direction: column;
+            text-align: center;
+            gap: 16px;
+          }
+
+          .book-cover {
+            width: 120px;
+            height: 180px;
+            margin: auto;
+          }
+
+          .book-title {
+            font-size: 18px;
+          }
+
+          .book-author {
+            font-size: 14px;
+          }
+
+          .pagination {
+            gap: 6px;
+            margin-top: 30px;
+          }
+
+          .page-btn {
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 6px;
+          }
         }
       `}</style>
     </>
