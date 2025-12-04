@@ -318,24 +318,25 @@ export default function CalendarPage() {
 
   // ✅ 날짜 클릭 시: 모달 오픈
   const openScheduleModal = (dateKey: string) => {
-    setSelectedDate(dateKey)
-    setContextDate(dateKey)
+  setSelectedDate(dateKey)
+  setContextDate(dateKey)
 
-    setModalStartDate(dateKey)
-    setModalEndDate(dateKey)
-    setModalRangeType('single')
+  setModalStartDate(dateKey)
+  setModalEndDate(dateKey)
+  setModalRangeType('single')
 
-    const existingTitle = dateNoteTitles[dateKey] ?? ''
-    const existingColor = customColors[dateKey] ?? ''
+  // 🔥 기존 값 불러오지 않고 모두 초기화
+  setModalTitle('')
+  setModalStartTime('')
+  setModalEndTime('')
+  setModalDescription('')
+  setModalColor('')
 
-    setModalTitle(existingTitle)
-    setModalStartTime('')
-    setModalEndTime('')
-    setModalDescription('')
-    setModalColor(existingColor)
-    setEditingIndex(null)
-    setIsModalOpen(true)
-  }
+  // 수정모드 아님
+  setEditingIndex(null)
+
+  setIsModalOpen(true)
+}
 
   const handleRightClickDay = (
     e: MouseEvent<HTMLButtonElement>,
@@ -380,188 +381,122 @@ export default function CalendarPage() {
 
   // ✏️ 기존 일정 "수정" 버튼 / 리스트 아이템 클릭 시
   const handleEditExistingSchedule = (index: number) => {
-    const dateKey = selectedDate || modalStartDate
-    if (!dateKey) return
+  const dateKey = selectedDate
+  if (!dateKey) return
 
-    const memoList = memos[dateKey] || []
-    const descList = dateNoteContents[dateKey] || []
+  const titleList = dateNoteContents[dateKey] || []
+  const memoList = memos[dateKey] || []
 
-    const targetMemo = memoList[index]
-    const targetDesc = descList[index] ?? targetMemo?.text ?? ''
+  setEditingIndex(index)
+  setModalTitle(titleList[index] || "")
+  setModalDescription(memoList[index]?.text || "")
+  setModalStartTime(memoList[index]?.start || "")
+  setModalEndTime(memoList[index]?.end || "")
+}
 
-    setEditingIndex(index)
-    setModalStartTime(targetMemo?.start ?? '')
-    setModalEndTime(targetMemo?.end ?? '')
-    setModalDescription(targetDesc)
-  }
 
   // 🗑 기존 일정 하나 삭제
   const handleDeleteScheduleItem = (index: number) => {
-    const dateKey = selectedDate || modalStartDate
-    if (!dateKey) return
+  const dateKey = selectedDate
+  if (!dateKey) return
 
-    const ok = window.confirm('이 일정을 삭제할까요?')
-    if (!ok) return
+  // 제목 리스트 삭제
+  setDateNoteContents((prev) => {
+    const list = prev[dateKey] || []
+    const newList = list.filter((_, i) => i !== index)
+    const next = { ...prev }
+    if (newList.length === 0) delete next[dateKey]
+    else next[dateKey] = newList
+    return next
+  })
 
-    setMemos((prev) => {
-      const list = prev[dateKey]
-      if (!list) return prev
-      const newList = list.filter((_, i) => i !== index)
-      const next = { ...prev }
-      if (newList.length === 0) {
-        delete next[dateKey]
-      } else {
-        next[dateKey] = newList
-      }
-      return next
-    })
+  // 대표 제목 재계산
+  setDateNoteTitles((prev) => {
+    const newContents = dateNoteContents[dateKey]?.filter((_, i) => i !== index) || []
+    const next = { ...prev }
+    next[dateKey] = newContents[0] || ""
+    return next
+  })
 
-    setDateNoteContents((prev) => {
-      const list = prev[dateKey]
-      if (!list) return prev
-      const newList = list.filter((_, i) => i !== index)
-      const next = { ...prev }
-      if (newList.length === 0) {
-        delete next[dateKey]
-      } else {
-        next[dateKey] = newList
-      }
-      return next
-    })
+  // 메모 삭제
+  setMemos((prev) => {
+    const list = prev[dateKey] || []
+    const newList = list.filter((_, i) => i !== index)
+    const next = { ...prev }
+    if (newList.length === 0) delete next[dateKey]
+    else next[dateKey] = newList
+    return next
+  })
 
-    setEditingIndex(null)
-    setModalStartTime('')
-    setModalEndTime('')
-    setModalDescription('')
-  }
+  setEditingIndex(null)
+}
+
 
   // ✅ single / range 처리 + 설명/시간/색상 저장
-  const handleModalSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!modalStartDate) {
-      alert('시작일을 선택하세요.')
-      return
-    }
-    if (!modalTitle.trim()) {
-      alert('제목을 입력하세요.')
-      return
-    }
+ const handleModalSubmit = (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+  if (!modalStartDate) return
+  if (!modalTitle.trim()) return
 
-    const start = modalStartDate
-    const end =
-      modalRangeType === 'range' && modalEndDate ? modalEndDate : modalStartDate
+  const dateKey = modalStartDate
 
-    const descriptionText =
-      modalDescription.trim().length > 0
-        ? modalDescription.trim()
-        : modalTitle.trim()
+  // 🔵 제목 리스트 저장
+  setDateNoteContents((prev) => {
+    const next = { ...prev }
+    const list = next[dateKey] ? [...next[dateKey]] : []
 
-    if (modalRangeType === 'single') {
-      // 🔹 하루 일정
-
-      // 날짜 대표 제목
-      setDateNoteTitles((prev) => ({
-        ...prev,
-        [start]: modalTitle.trim(),
-      }))
-
-      if (editingIndex !== null) {
-        // ✏ 기존 일정 수정
-        setDateNoteContents((prev) => {
-          const next = { ...prev }
-          const list = next[start] ? [...next[start]] : []
-          list[editingIndex] = descriptionText
-          next[start] = list
-          return next
-        })
-
-        setMemos((prev) => {
-          const next = { ...prev }
-          const list = next[start] ? [...next[start]] : []
-          const finalStart = modalStartTime || ''
-          const finalEnd = modalEndTime || ''
-          list[editingIndex] = {
-            start: finalStart,
-            end: finalEnd,
-            text: descriptionText,
-          }
-          next[start] = list
-          return next
-        })
-      } else {
-        // ➕ 새 일정 추가
-        setDateNoteContents((prev) => {
-          const next = { ...prev }
-          if (!descriptionText) return next
-          const list = next[start] ? [...next[start]] : []
-          list.push(descriptionText)
-          next[start] = list
-          return next
-        })
-
-        setMemos((prev) => {
-          const next = { ...prev }
-          const list = next[start] ? [...next[start]] : []
-          const finalStart = modalStartTime || ''
-          const finalEnd = modalEndTime || ''
-          list.push({
-            start: finalStart,
-            end: finalEnd,
-            text: descriptionText,
-          })
-          next[start] = list
-          return next
-        })
-      }
-
-      // 셀 색상
-      setCustomColors((prev) => {
-        const next = { ...prev }
-        if (modalColor) {
-          next[start] = modalColor
-        } else {
-          delete next[start]
-        }
-        return next
-      })
+    if (editingIndex !== null) {
+      list[editingIndex] = modalTitle.trim()
     } else {
-      // 🔹 기간 일정
-      if (start && end && start <= end) {
-        setPeriods((prev) => [
-          ...prev,
-          {
-            id: Date.now(),
-            label: descriptionText,
-            start,
-            end,
-            color: '#7c3aed',
-          },
-        ])
-      }
-
-      setDateNoteContents((prev) => {
-        const next = { ...prev }
-        if (!descriptionText) return next
-        const list = next[start] ? [...next[start]] : []
-        list.push(descriptionText)
-        next[start] = list
-        return next
-      })
-
-      setCustomColors((prev) => {
-        const next = { ...prev }
-        if (modalColor) {
-          next[start] = modalColor
-        } else {
-          delete next[start]
-        }
-        return next
-      })
+      list.push(modalTitle.trim())
     }
 
-    setEditingIndex(null)
-    setIsModalOpen(false)
-  }
+    next[dateKey] = list
+    return next
+  })
+
+  // 🔥 대표 제목 최신 업데이트 (이 부분이 가장 중요)
+  setDateNoteTitles((prev) => {
+    const next = { ...prev }
+
+    // 기존 리스트
+    const oldList = dateNoteContents[dateKey] || []
+
+    // 최신 리스트 생성
+    let updatedList = [...oldList]
+
+    if (editingIndex !== null) {
+      updatedList[editingIndex] = modalTitle.trim()
+    } else {
+      updatedList.push(modalTitle.trim())
+    }
+
+    // 첫 번째 제목을 대표 제목으로 설정
+    next[dateKey] = updatedList[0] || ""
+
+    return next
+  })
+
+  // 🟡 설명·시간 저장
+  setMemos((prev) => {
+    const next = { ...prev }
+    const list = next[dateKey] ? [...next[dateKey]] : []
+    const memo = {
+      start: modalStartTime || '',
+      end: modalEndTime || '',
+      text: modalDescription || '',
+    }
+
+    if (editingIndex !== null) list[editingIndex] = memo
+    else list.push(memo)
+
+    next[dateKey] = list
+    return next
+  })
+
+  setIsModalOpen(false)
+  setEditingIndex(null)
+}
 
   const handleDeleteScheduleForDate = () => {
     const dateKey = modalStartDate || selectedDate
@@ -1000,56 +935,60 @@ export default function CalendarPage() {
                   if (maxLen === 0) return null
 
                   return (
-                    <div className="modal-field">
-                      <label className="modal-label">
-                        이 날짜에 저장된 일정
-                      </label>
-                      <div className="schedule-list">
-                        {Array.from({ length: maxLen }).map((_, i) => {
-                          const memo = memoList[i]
-                          const desc = descList[i] ?? memo?.text ?? ''
-                          const timeLabel =
-                            memo && (memo.start || memo.end)
-                              ? `${memo.start || ''} ~ ${memo.end || ''}`
-                              : '시간 없음'
+  <div className="modal-field">
+    <label className="modal-label">이 날짜에 저장된 일정</label>
+    <div className="schedule-list">
+      {Array.from({ length: maxLen }).map((_, i) => {
+        const memo = memoList[i]
+        const title = dateNoteTitles[dateKey] || ''
 
-                          return (
-                            <div
-                              key={i}
-                              className="schedule-list-item"
-                              onClick={() => handleEditExistingSchedule(i)}
-                            >
-                              <div className="schedule-list-main">
-                                <span className="schedule-time">
-                                  {timeLabel}
-                                </span>
-                                <span className="schedule-desc">{desc}</span>
-                              </div>
-                              <div className="schedule-list-actions">
-                                <button
-                                  type="button"
-                                  className="schedule-edit-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleEditExistingSchedule(i)
-                                  }}
-                                >
-                                  수정
-                                </button>
-                                <button
-                                  type="button"
-                                  className="schedule-delete-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDeleteScheduleItem(i)
-                                  }}
-                                >
-                                  삭제
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        })}
+        const desc =
+          descList[i] && descList[i].trim()
+            ? descList[i]
+            : memo?.text && memo.text.trim()
+            ? memo.text
+            : title // 🔥 제목 fallback
+
+        const timeLabel =
+          memo && (memo.start || memo.end)
+            ? `${memo.start || ''} ~ ${memo.end || ''}`
+            : '시간 없음'
+
+              return (
+                <div
+                key={i}
+                className="schedule-list-item"
+                onClick={() => handleEditExistingSchedule(i)}
+                >
+                <div className="schedule-list-main">
+                <span className="schedule-time">{timeLabel}</span>
+                <span className="schedule-desc">{desc}</span>
+                </div>
+                <div className="schedule-list-actions">
+                <button
+                  type="button"
+                  className="schedule-edit-btn"
+                  onClick={(e) => {
+                  e.stopPropagation()
+                  handleEditExistingSchedule(i)
+                }}
+              >
+                수정
+                </button>
+                          <button
+                          type="button"
+                          className="schedule-delete-btn"
+                          onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteScheduleItem(i)
+                          }}
+                          >
+                            삭제
+                            </button>
+                          </div>
+                        </div>
+                        )
+                      })}
                       </div>
                     </div>
                   )
