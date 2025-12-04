@@ -292,7 +292,6 @@ export default function RootLayout({
         {/* 모바일 오버레이 */}
         {!isPC && sidebarOpen && (
           <div
-            onClick={() => setSidebarOpen(false)}
             style={{
               position: 'fixed',
               top: 0,
