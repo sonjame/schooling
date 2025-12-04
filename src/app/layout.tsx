@@ -97,7 +97,7 @@ export default function RootLayout({
 
   return (
     <html lang="ko">
-          <head>
+      <head>
         {/* Google Fonts */}
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
@@ -167,6 +167,14 @@ export default function RootLayout({
             gap: '16px',
             transition: 'left 0.3s ease',
             zIndex: 998,
+
+            /* ⭐ 모바일 스크롤 활성화 */
+            overflowY: 'auto',
+            overflowX: 'hidden',
+
+            /* ⭐ iOS 부드러운 스크롤 */
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y',
           }}
         >
           {/* 모바일 X */}
@@ -209,6 +217,9 @@ export default function RootLayout({
             style={{ position: 'relative' }}
             onMouseEnter={() => isPC && setDropOpen(true)}
             onMouseLeave={() => isPC && setDropOpen(false)}
+            onClick={() => {
+              if (!isPC) setDropOpen((prev) => !prev); // ⭐ 모바일에서는 클릭으로 열기/닫기
+            }}
           >
             <MenuItem icon="📋" label="게시판" href="/board" />
 
@@ -254,7 +265,7 @@ export default function RootLayout({
                     fontWeight: 600,
                   }}
                 >
-                  👋 {user.username} 님
+                  👋 {user.name || user.username} 님
                 </div>
                 <button
                   onClick={handleLogout}
@@ -296,10 +307,9 @@ export default function RootLayout({
 
         {/* 메인 */}
         <main
+          className="min-h-screen"
           style={{
             marginLeft: isPC ? '220px' : '0px',
-            padding: isPC ? '24px' : '12px',
-            transition: '0.3s',
           }}
         >
           {children}
