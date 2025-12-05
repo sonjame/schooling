@@ -20,12 +20,19 @@ export default function EditPostPage() {
 
   const [storageKey, setStorageKey] = useState<string>('')
   const [post, setPost] = useState<any>(null)
+
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [image, setImage] = useState<string>('')
 
+  /* 🔥 투표 수정 상태 */
+  const [voteEnabled, setVoteEnabled] = useState(false)
+  const [voteOptions, setVoteOptions] = useState<string[]>([])
+  const [voteEndAt, setVoteEndAt] = useState<string>('') // yyyy-mm-ddTHH:mm
+
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  /* 모달 상태 */
   const [modal, setModal] = useState({
     show: false,
     message: '',
@@ -34,6 +41,7 @@ export default function EditPostPage() {
     onCancel: () => {},
   })
 
+  /* 모달 */
   const showAlert = (msg: string, callback?: () => void) => {
     setModal({
       show: true,
@@ -56,12 +64,13 @@ export default function EditPostPage() {
         setModal((m) => ({ ...m, show: false }))
         yesFn()
       },
-      onCancel: () => {
-        setModal((m) => ({ ...m, show: false }))
-      },
+      onCancel: () => setModal((m) => ({ ...m, show: false })),
     })
   }
 
+  /* ------------------------------
+     게시글 로드
+  ------------------------------ */
   useEffect(() => {
     let foundPost: any = null
     let foundKey = ''
@@ -82,9 +91,17 @@ export default function EditPostPage() {
       setTitle(foundPost.title)
       setContent(foundPost.content || '')
       setImage(foundPost.image || '')
+
+      /* 🔥 투표 정보 로드 */
+      if (foundPost.vote?.enabled) {
+        setVoteEnabled(true)
+        setVoteOptions(foundPost.vote.options.map((o: any) => o.text))
+        setVoteEndAt(foundPost.vote.endAt || '')
+      }
     }
   }, [postId])
 
+  /* textarea 자동 높이 조절 */
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
@@ -92,6 +109,7 @@ export default function EditPostPage() {
     }
   }, [content])
 
+  /* 이미지 업로드 */
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -101,7 +119,9 @@ export default function EditPostPage() {
     reader.readAsDataURL(file)
   }
 
-  /* 🔥 수정 저장 (board_xxx + posts_all 동시 업데이트) */
+  /* ------------------------------
+     저장하기
+  ------------------------------ */
   const handleSave = () => {
     if (!title.trim() || !content.trim()) {
       showAlert('제목과 내용을 모두 입력하세요.')
@@ -114,18 +134,70 @@ export default function EditPostPage() {
     }
 
     showConfirm('정말 수정하시겠습니까?', () => {
-      // 1) 게시판별
+      /* 게시판별 저장 */
       const boardList = JSON.parse(localStorage.getItem(storageKey) || '[]')
+
       const updatedBoard = boardList.map((p: any) =>
-        String(p.id) === String(postId) ? { ...p, title, content, image } : p
+        String(p.id) === String(postId)
+          ? {
+              ...p,
+              title,
+              content,
+              image,
+              vote: voteEnabled
+                ? {
+                    enabled: true,
+                    options: voteOptions.map((text, idx) => {
+                      // 기존 옵션 데이터 찾아오기
+                      const oldOpt =
+                        p.vote?.options?.find((o: any) => o.text === text) || {}
+
+                      return {
+                        optionId: oldOpt.optionId ?? crypto.randomUUID(),
+                        text,
+                        votes: oldOpt.votes ?? 0,
+                        voters: oldOpt.voters ?? [],
+                      }
+                    }),
+                    endAt: voteEndAt,
+                  }
+                : { enabled: false },
+            }
+          : p
       )
+
       localStorage.setItem(storageKey, JSON.stringify(updatedBoard))
 
-      // 2) 🔥 posts_all에도 반영
+      /* posts_all 저장 */
       const all = JSON.parse(localStorage.getItem('posts_all') || '[]')
       const updatedAll = all.map((p: any) =>
-        String(p.id) === String(postId) ? { ...p, title, content, image } : p
+        String(p.id) === String(postId)
+          ? {
+              ...p,
+              title,
+              content,
+              image,
+              vote: voteEnabled
+                ? {
+                    enabled: true,
+                    options: voteOptions.map((text) => {
+                      const oldOpt =
+                        p.vote?.options?.find((o: any) => o.text === text) || {}
+
+                      return {
+                        optionId: oldOpt.optionId ?? crypto.randomUUID(),
+                        text,
+                        votes: oldOpt.votes ?? 0,
+                        voters: oldOpt.voters ?? [],
+                      }
+                    }),
+                    endAt: voteEndAt,
+                  }
+                : { enabled: false },
+            }
+          : p
       )
+
       localStorage.setItem('posts_all', JSON.stringify(updatedAll))
 
       showAlert('수정되었습니다!', () => {
@@ -156,6 +228,7 @@ export default function EditPostPage() {
             게시글 수정
           </h2>
 
+          {/* 제목 */}
           <label style={label}>제목</label>
           <input
             value={title}
@@ -164,6 +237,7 @@ export default function EditPostPage() {
             style={inputBox}
           />
 
+          {/* 내용 */}
           <label style={label}>내용</label>
           <textarea
             ref={textareaRef}
@@ -173,6 +247,7 @@ export default function EditPostPage() {
             style={textArea}
           />
 
+          {/* 이미지 업로드 */}
           <input
             id="uploadImage"
             type="file"
@@ -205,12 +280,125 @@ export default function EditPostPage() {
             </div>
           )}
 
+          {/* ------------------------------- */}
+          {/* 🔥 투표 수정 UI */}
+          {/* ------------------------------- */}
+
+          <hr style={{ margin: '20px 0', borderColor: '#ddd' }} />
+
+          <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>
+            🗳 투표 수정
+          </h3>
+
+          {/* 투표 활성화 */}
+          <div style={{ marginBottom: 14 }}>
+            <label
+              style={{
+                ...label,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={voteEnabled}
+                onChange={(e) => setVoteEnabled(e.target.checked)}
+              />
+              투표 사용하기
+            </label>
+          </div>
+
+          {voteEnabled && (
+            <div style={{ paddingLeft: 8 }}>
+              {/* 옵션 수정 */}
+              <label style={label}>투표 옵션</label>
+
+              {voteOptions.map((opt, idx) => (
+                <div
+                  key={idx}
+                  style={{ display: 'flex', gap: 8, marginBottom: 8 }}
+                >
+                  <input
+                    value={opt}
+                    onChange={(e) => {
+                      const list = [...voteOptions]
+                      list[idx] = e.target.value
+                      setVoteOptions(list)
+                    }}
+                    placeholder={`옵션 ${idx + 1}`}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      border: '1px solid #ccc',
+                      borderRadius: 8,
+                    }}
+                  />
+
+                  <button
+                    onClick={() =>
+                      setVoteOptions(voteOptions.filter((_, i) => i !== idx))
+                    }
+                    style={{
+                      background: '#ff5252',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 8,
+                      padding: '0 10px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                    }}
+                  >
+                    삭제
+                  </button>
+                </div>
+              ))}
+
+              <button
+                onClick={() => setVoteOptions([...voteOptions, ''])}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: '#E3F2FD',
+                  border: '1px solid #90CAF9',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  marginBottom: 14,
+                }}
+              >
+                + 옵션 추가
+              </button>
+
+              {/* 마감 시간 */}
+              <label style={label}>투표 마감 시간</label>
+              <input
+                type="datetime-local"
+                value={voteEndAt}
+                onChange={(e) => setVoteEndAt(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '46px',
+                  padding: '0 14px',
+                  border: '1.5px solid #CFD8DC',
+                  borderRadius: '10px',
+                  fontSize: '15px',
+                  background: '#FFFFFF',
+                  boxSizing: 'border-box',
+                  marginBottom: '18px', // 🔥 여백 추가 (이 줄만 추가!)
+                }}
+              />
+            </div>
+          )}
+
+          {/* 저장하기 */}
           <button onClick={handleSave} style={submitBtn}>
             저장하기
           </button>
         </div>
       </div>
 
+      {/* 모달 */}
       {modal.show && (
         <div className="modal-backdrop">
           <div className="modal-box">
