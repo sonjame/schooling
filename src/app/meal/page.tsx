@@ -44,14 +44,16 @@ async function fetchMeal(date: string, eduCode: string, schoolCode: string) {
 function getWeekDates() {
   const today = new Date()
   const kr = new Date(today.getTime() + 9 * 60 * 60 * 1000)
+
+  // 📌 다음 주 월요일 계산
   const day = kr.getDay()
-  const monday = new Date(kr)
-  monday.setDate(kr.getDate() - (day === 0 ? 6 : day - 1))
+  const nextMonday = new Date(kr)
+  nextMonday.setDate(kr.getDate() - (day === 0 ? 6 : day - 1) + 7)
 
   const dates = []
   for (let i = 0; i < 5; i++) {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
+    const d = new Date(nextMonday)
+    d.setDate(nextMonday.getDate() + i)
 
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, '0')
