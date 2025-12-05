@@ -155,147 +155,190 @@ export default function SignupPage() {
             }}
           >
             📝 회원가입
-          </h2>
+            </h2>
 
-          <input
-            style={inputStyle}
-            placeholder="아이디를 입력하세요"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-
-          <input
-            style={{ ...inputStyle, marginTop: '12px' }}
-            placeholder="이름을 입력하세요"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <div style={{ position: 'relative', marginTop: '12px' }}>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="비밀번호를 입력하세요"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ ...inputStyle, paddingRight: '48px' }}
-            />
-            <span
-              onClick={() => setShowPassword(!showPassword)}
-              style={{
-                position: 'absolute',
-                right: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                cursor: 'pointer',
-              }}
-            >
-              {showPassword ? '🙈' : '👁️'}
-            </span>
-          </div>
-
-          <input
-            type="password"
-            placeholder="비밀번호를 다시 입력하세요"
-            value={password2}
-            onChange={(e) => setPassword2(e.target.value)}
-            style={{ ...inputStyle, marginTop: '12px' }}
-          />
-
-          <div style={{ position: 'relative', marginTop: '12px' }}>
+            {/* 실명 */}
             <input
               style={inputStyle}
-              placeholder="학교명을 입력하세요 (자동완성)"
-              value={school}
-              onChange={(e) => searchSchool(e.target.value)}
+              placeholder="이름을 입력하세요 (실명)"
+              value={realName}
+              onChange={(e) => setRealName(e.target.value)}
             />
 
-            {isSearching && searchResults.length > 0 && (
-              <ul
+            {/* 아이디 + 중복확인 버튼 */}
+            <div style={{ position: 'relative', marginTop: '12px' }}>
+              <input
+                style={{ ...inputStyle, paddingRight: '100px' }}
+                placeholder="아이디를 입력하세요"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value)
+                  setIdAvailable(null)
+                }}
+              />
+
+              <button
+                onClick={checkDuplicateId}
                 style={{
                   position: 'absolute',
-                  top: '50px',
-                  left: 0,
-                  width: '100%',
-                  background: 'white',
-                  border: '1px solid #ccc',
-                  borderRadius: '8px',
-                  maxHeight: '180px',
-                  overflowY: 'auto',
-                  padding: 0,
-                  margin: 0,
-                  listStyle: 'none',
-                  zIndex: 100,
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  padding: '8px 10px',
+                  background: '#4FC3F7',
+                  color: 'white',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
                 }}
               >
-                {searchResults.map((item) => (
-                  <li
-                    key={item.SD_SCHUL_CODE}
-                    onClick={() => selectSchool(item)}
-                    style={{
-                      padding: '10px 12px',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid #eee',
-                    }}
-                  >
-                    <strong>{item.SCHUL_NM}</strong>
-                    <span style={{ color: '#777', marginLeft: '6px' }}>
-                      ({item.LCTN_SC_NM})
-                    </span>
-                    <span style={{ color: '#4FC3F7', marginLeft: '6px' }}>
-                      / {item.SCHUL_KND_SC_NM}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                중복확인
+              </button>
+            </div>
+
+            {/* 중복확인 결과 */}
+            {idAvailable === true && (
+              <p style={{ color: '#2E7D32', fontSize: '13px', marginTop: '6px' }}>
+                ✅ 사용 가능한 아이디입니다.
+              </p>
             )}
-          </div>
 
-          <select
-            style={{ ...inputStyle, marginTop: '12px' }}
-            value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-          >
-            <option>1학년</option>
-            <option>2학년</option>
-            <option>3학년</option>
-          </select>
+            {idAvailable === false && (
+              <p style={{ color: '#D32F2F', fontSize: '13px', marginTop: '6px' }}>
+                ❌ 이미 사용 중인 아이디입니다.
+              </p>
+            )}
 
-          <p style={{ fontSize: '13px', color: '#d32f2f', marginTop: '6px' }}>
-            ⚠️ 한번 선택한 학년은 변경할 수 없습니다.
-          </p>
+            {/* 비밀번호 */}
+            <div style={{ position: 'relative', marginTop: '12px' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="비밀번호를 입력하세요"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ ...inputStyle, paddingRight: '48px' }}
+              />
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  cursor: 'pointer',
+                }}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </span>
+            </div>
 
-          <button
-            onClick={handleSubmit}
-            style={{
-              width: '100%',
-              background: '#4FC3F7',
-              padding: '12px',
-              borderRadius: '8px',
-              border: 'none',
-              color: 'white',
-              fontSize: '16px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              marginTop: '20px',
-            }}
-          >
-            회원가입 완료
-          </button>
+            <input
+              type="password"
+              placeholder="비밀번호를 다시 입력하세요"
+              value={password2}
+              onChange={(e) => setPassword2(e.target.value)}
+              style={{ ...inputStyle, marginTop: '12px' }}
+            />
 
-          <p
-            style={{
-              textAlign: 'center',
-              marginTop: '20px',
-              fontSize: '14px',
-            }}
-          >
-            이미 계정이 있으신가요?
-            <Link href="/auth/login" style={{ color: '#4FC3F7', fontWeight: 600 }}>
-              {' '}
-              로그인
-            </Link>
-          </p>
-        </div>
+            {/* 학교 검색 */}
+            <div style={{ position: 'relative', marginTop: '12px' }}>
+              <input
+                style={inputStyle}
+                placeholder="학교명을 입력하세요 (자동완성)"
+                value={school}
+                onChange={(e) => searchSchool(e.target.value)}
+              />
+
+              {isSearching && searchResults.length > 0 && (
+                <ul
+                  style={{
+                    position: 'absolute',
+                    top: '50px',
+                    width: '100%',
+                    background: 'white',
+                    border: '1px solid #ccc',
+                    borderRadius: '8px',
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                    listStyle: 'none',
+                    margin: 0,
+                    padding: 0,
+                    zIndex: 100,
+                  }}
+                >
+                  {searchResults.map((item) => (
+                    <li
+                      key={item.SD_SCHUL_CODE}
+                      onClick={() => selectSchool(item)}
+                      style={{
+                        padding: '10px 12px',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #eee',
+                      }}
+                    >
+                      <strong>{item.SCHUL_NM}</strong>
+                      <span style={{ color: '#777', marginLeft: '6px' }}>
+                        ({item.LCTN_SC_NM})
+                      </span>
+                      <span style={{ color: '#4FC3F7', marginLeft: '6px' }}>
+                        / {item.SCHUL_KND_SC_NM}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <select
+              style={{ ...inputStyle, marginTop: '12px' }}
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+            >
+              <option>1학년</option>
+              <option>2학년</option>
+              <option>3학년</option>
+            </select>
+
+            <p style={{ fontSize: '13px', color: '#d32f2f', marginTop: '6px' }}>
+              ⚠️ 한번 선택한 학년은 변경할 수 없습니다.
+            </p>
+
+            <button
+              onClick={handleSubmit}
+              style={{
+                width: '100%',
+                background: '#4FC3F7',
+                padding: '12px',
+                borderRadius: '8px',
+                border: 'none',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginTop: '20px',
+              }}
+            >
+              회원가입 완료
+            </button>
+
+            <p
+              style={{
+                textAlign: 'center',
+                marginTop: '20px',
+                fontSize: '14px',
+              }}
+            >
+              이미 계정이 있으신가요?
+              <Link
+                href="/auth/login"
+                style={{ color: '#4FC3F7', fontWeight: 600 }}
+              >
+                {' '}
+                로그인
+              </Link>
+            </p>
 
         {/* 학년 확인 모달 */}
         {showConfirm && (
