@@ -22,7 +22,8 @@ export default function PostDetailPage() {
   const [storageKey, setStorageKey] = useState<string>('')
 
   const [comments, setComments] = useState<any[]>([])
-  const [username, setUsername] = useState<string>('') // username만 저장하도록 고침
+  const [username, setUsername] = useState<string>('')
+  const [myName, setMyName] = useState<string>('') // 실명 저장
 
   const [commentValue, setCommentValue] = useState('')
   const [replyTarget, setReplyTarget] = useState<string | null>(null)
@@ -42,6 +43,10 @@ export default function PostDetailPage() {
 
   const [openCommentMenu, setOpenCommentMenu] = useState<string | null>(null)
 
+  /* 🔥 투표 관련 상태 */
+  const [myVoteIndex, setMyVoteIndex] = useState<number | null>(null)
+  const [totalVotes, setTotalVotes] = useState(0)
+
   const [modal, setModal] = useState({
     show: false,
     message: '',
@@ -50,6 +55,7 @@ export default function PostDetailPage() {
     onCancel: () => {},
   })
 
+  /* 모달 */
   const showAlert = (msg: string, callback?: () => void) => {
     setModal({
       show: true,
@@ -83,7 +89,6 @@ export default function PostDetailPage() {
     let foundPost: any = null
     let foundKey = ''
 
-    // 게시글 찾기
     for (const key of boardKeys) {
       const list = JSON.parse(localStorage.getItem(key) || '[]')
       const match = list.find((p: any) => String(p.id) === String(postId))
@@ -95,77 +100,273 @@ export default function PostDetailPage() {
     }
 
     if (foundPost) {
+      // 🔥 투표 구조 보정 (voters 없으면 빈배열)
+      // 🔥 기존 투표 데이터 보존하도록 수정
+      if (foundPost.vote?.enabled && Array.isArray(foundPost.vote.options)) {
+        foundPost.vote.options = foundPost.vote.options.map((opt: any) => ({
+          optionId: opt.optionId ?? crypto.randomUUID(), // key ID 보정
+          text: opt.text,
+          voters: Array.isArray(opt.voters) ? opt.voters : [],
+          votes: typeof opt.votes === 'number' ? opt.votes : 0,
+        }))
+      }
+
       setPost(foundPost)
       setStorageKey(foundKey)
     }
 
-    // 로그인 유저 username만 불러오기
+    /* 로그인 유저 정보 로드 */
     try {
       const saved = localStorage.getItem('loggedInUser')
       const parsed = JSON.parse(saved || '{}')
-      setUsername(parsed.username || '')
-    } catch {
-      setUsername('')
-    }
 
-    // 댓글 로드 + author 자동 정리
+      setUsername(parsed.username || '')
+      setMyName(parsed.name || '') // 실명
+    } catch {}
+
+    /* 댓글 로드 */
     const rawComments = JSON.parse(
       localStorage.getItem(`comments_${postId}`) || '[]'
     )
-
-    const cleaned = rawComments.map((c: any) => {
-      let author = c.author
-
-      // author가 JSON 형태이면 username만 추출
-      if (typeof author === 'string' && author.includes('{')) {
-        try {
-          author = JSON.parse(author).username || author
-        } catch {}
-      }
-
-      return { ...c, author }
-    })
-
-    setComments(cleaned)
-    localStorage.setItem(`comments_${postId}`, JSON.stringify(cleaned))
+    setComments(rawComments)
   }, [postId])
 
-  /* ------------------------------------------
-     게시글 작성자인지 체크
-  ------------------------------------------- */
+  /* 게시글 작성자 체크 */
   useEffect(() => {
-    if (!post || !username) return
+    if (!post || !myName) return
+    setIsAuthor(post.author === myName)
+  }, [post, myName])
 
-    let author = post.author
-
-    // author가 JSON이면 username만 추출
-    if (typeof author === 'string' && author.includes('{')) {
-      try {
-        author = JSON.parse(author).username
-      } catch {}
-    }
-
-    setIsAuthor(username.trim() === String(author).trim())
-  }, [post, username])
-
-  /* ------------------------------------------
-     스크랩 여부
-  ------------------------------------------- */
+  /* 스크랩 여부 */
   useEffect(() => {
     if (!post || !username) return
 
     const key = `scrap_${username}`
     const saved = JSON.parse(localStorage.getItem(key) || '[]')
     setScrapped(saved.includes(postId))
+  }, [post, username, postId])
+
+  /* 🔥 투표 관련 계산 (총 투표수, 내 선택 옵션 인덱스) */
+  useEffect(() => {
+    if (!post || !post.vote?.enabled || !Array.isArray(post.vote.options)) {
+      setTotalVotes(0)
+      setMyVoteIndex(null)
+      return
+    }
+
+    const options = post.vote.options
+    const total = options.reduce(
+      (sum: number, opt: any) => sum + (opt.votes || 0),
+      0
+    )
+    setTotalVotes(total)
+
+    if (username) {
+      const idx = options.findIndex((opt: any) =>
+        (opt.voters || []).includes(username)
+      )
+      setMyVoteIndex(idx >= 0 ? idx : null)
+    } else {
+      setMyVoteIndex(null)
+    }
   }, [post, username])
 
+  /* ------------------------------------------
+     댓글 트리 생성
+  ------------------------------------------- */
+  function buildTree(arr: any[], parent: string | null = null): any[] {
+    return arr
+      .filter((c) => c.parent === parent)
+      .map((c) => ({
+        ...c,
+        children: buildTree(arr, c.id),
+      }))
+  }
+
+  const commentTree = buildTree(comments)
+
+  /* ------------------------------------------
+     댓글 작성 (실명)
+  ------------------------------------------- */
+  const writeComment = () => {
+    if (!commentValue.trim()) return
+
+    const newComment = {
+      id: crypto.randomUUID(),
+      content: commentValue,
+      author: myName || '익명',
+      createdAt: new Date().toLocaleString(),
+      parent: null,
+      likes: 0, // 👍 추가
+      likedUsers: [], // 👍 추가
+    }
+
+    const updated = [...comments, newComment]
+    setComments(updated)
+
+    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
+    setCommentValue('')
+  }
+
+  /* ------------------------------------------
+     대댓글 작성 (실명)
+  ------------------------------------------- */
+  const writeReply = () => {
+    if (!replyValue.trim() || !replyTarget) return
+
+    const newReply = {
+      id: crypto.randomUUID(),
+      content: replyValue,
+      author: myName || '익명',
+      createdAt: new Date().toLocaleString(),
+      parent: replyTarget,
+      likes: 0, // 👍 추가
+      likedUsers: [], // 👍 추가
+    }
+
+    const updated = [...comments, newReply]
+    setComments(updated)
+
+    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
+
+    setReplyValue('')
+    setReplyTarget(null)
+  }
+
+  /* 댓글 수정 */
+  const saveEdit = () => {
+    const updated = comments.map((c) =>
+      c.id === editId ? { ...c, content: editValue } : c
+    )
+
+    setComments(updated)
+    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
+
+    setEditId(null)
+    setEditValue('')
+  }
+
+  /* 댓글 삭제 */
+  const deleteComment = (id: string) => {
+    showConfirm('댓글을 삭제하시겠습니까?', () => {
+      const updated = comments.filter((c) => c.id !== id && c.parent !== id)
+      setComments(updated)
+
+      localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
+    })
+  }
+
+  /* 게시글 삭제 */
+  const deletePost = () => {
+    if (!storageKey || !post) return
+
+    showConfirm('게시글을 삭제하시겠습니까?', () => {
+      const list = JSON.parse(localStorage.getItem(storageKey) || '[]')
+      const updated = list.filter((p: any) => p.id !== post.id)
+      localStorage.setItem(storageKey, JSON.stringify(updated))
+
+      const all = JSON.parse(localStorage.getItem('posts_all') || '[]')
+      const updatedAll = all.filter((p: any) => p.id !== post.id)
+      localStorage.setItem('posts_all', JSON.stringify(updatedAll))
+
+      showAlert('게시글이 삭제되었습니다.', () => {
+        router.push(`/board`)
+      })
+    })
+  }
+
+  /* 게시글을 로컬스토리지에 동기화 (좋아요/투표 등 공용) */
+  const updatePostInStorage = (updatedPost: any) => {
+    if (!updatedPost || !updatedPost.id) return
+
+    const sync = (key: string) => {
+      const list = JSON.parse(localStorage.getItem(key) || '[]')
+
+      const updatedList = list.map((p: any) => {
+        if (p.id !== updatedPost.id) return p
+
+        // 🔥 기존 options map을 optionId 기준으로 저장하기 위해 dictionary 생성
+        const oldOptionsMap = (p.vote?.options || []).reduce(
+          (acc: any, opt: any) => {
+            acc[opt.optionId] = opt // 기존 voters data 보존
+            return acc
+          },
+          {}
+        )
+
+        let mergedVote = p.vote
+
+        // vote 업데이트가 포함되어있다면 병합 처리
+        if (updatedPost.vote) {
+          mergedVote = {
+            ...p.vote,
+            ...updatedPost.vote,
+            options: updatedPost.vote.options
+              ? updatedPost.vote.options.map((newOpt: any) => {
+                  const oldOpt = oldOptionsMap[newOpt.optionId] || {}
+
+                  return {
+                    ...oldOpt, // 🔥 기존 voters 유지
+                    ...newOpt, // 새 텍스트, 새 votes 반영
+                    voters: Array.isArray(newOpt.voters)
+                      ? newOpt.voters
+                      : oldOpt.voters || [], // voters 보존
+                    votes:
+                      typeof newOpt.votes === 'number'
+                        ? newOpt.votes
+                        : oldOpt.votes || 0,
+                  }
+                })
+              : p.vote.options,
+          }
+        }
+
+        return {
+          ...p,
+          ...updatedPost,
+          vote: mergedVote,
+        }
+      })
+
+      localStorage.setItem(key, JSON.stringify(updatedList))
+    }
+
+    if (storageKey) sync(storageKey)
+    sync('posts_all')
+  }
+
+  /* 좋아요 */
+  const handleLike = () => {
+    if (!username) return showAlert('로그인이 필요합니다.')
+    if (!post || !storageKey) return
+
+    const likeKey = `like_postIds_${username}`
+    const liked = JSON.parse(localStorage.getItem(likeKey) || '[]')
+    const already = liked.includes(postId)
+
+    const newLikes = already ? post.likes - 1 : post.likes + 1
+
+    const updatedPost = { ...post, likes: newLikes }
+    setPost(updatedPost)
+    updatePostInStorage(updatedPost)
+
+    const newLiked = already
+      ? liked.filter((x: string) => x !== postId)
+      : [...liked, postId]
+
+    localStorage.setItem(likeKey, JSON.stringify(newLiked))
+  }
+
+  /* ------------------------------------------
+   스크랩 (북마크)
+------------------------------------------- */
   const toggleScrap = () => {
     if (!username) return showAlert('로그인이 필요합니다.')
 
     const key = `scrap_${username}`
     const saved = JSON.parse(localStorage.getItem(key) || '[]')
 
-    let updated = []
+    let updated: string[] = []
 
     if (saved.includes(postId)) {
       updated = saved.filter((i: string) => i !== postId)
@@ -180,163 +381,114 @@ export default function PostDetailPage() {
     localStorage.setItem(key, JSON.stringify(updated))
   }
 
-  /* ------------------------------------------
-     댓글 트리 구성
-  ------------------------------------------- */
-  function buildTree(arr: any[], parent: string | null = null): any[] {
-    return arr
-      .filter((c) => c.parent === parent)
-      .map((c) => ({
-        ...c,
-        children: buildTree(arr, c.id),
-      }))
+  const copyLink = () => {
+    const url = window.location.href
+    navigator.clipboard.writeText(url)
+    showAlert('링크가 복사되었습니다!')
   }
 
-  const commentTree = buildTree(comments)
+  /* 🔥 투표 클릭 처리 (투표 취소 + 재투표 지원) */
+  const handleVote = (index: number) => {
+    if (!post || !post.vote?.enabled || !Array.isArray(post.vote.options))
+      return
 
-  /* ------------------------------------------
-     댓글 작성
-  ------------------------------------------- */
-  const writeComment = () => {
-    if (!commentValue.trim()) return
-
-    const newComment = {
-      id: crypto.randomUUID(),
-      content: commentValue,
-      author: username || '익명',
-      createdAt: new Date().toLocaleString(),
-      parent: null,
+    if (!username) {
+      showAlert('투표는 로그인 후 이용 가능합니다.')
+      return
     }
 
-    const updated = [...comments, newComment]
-    setComments(updated)
-
-    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
-    setCommentValue('')
-  }
-
-  /* ------------------------------------------
-     대댓글 작성
-  ------------------------------------------- */
-  const writeReply = () => {
-    if (!replyValue.trim() || !replyTarget) return
-
-    const newReply = {
-      id: crypto.randomUUID(),
-      content: replyValue,
-      author: username || '익명',
-      createdAt: new Date().toLocaleString(),
-      parent: replyTarget,
-    }
-
-    const updated = [...comments, newReply]
-    setComments(updated)
-
-    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
-    setReplyValue('')
-    setReplyTarget(null)
-  }
-
-  /* ------------------------------------------
-     댓글 수정
-  ------------------------------------------- */
-  const saveEdit = () => {
-    const updated = comments.map((c) =>
-      c.id === editId ? { ...c, content: editValue } : c
-    )
-
-    setComments(updated)
-    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
-
-    setEditId(null)
-    setEditValue('')
-  }
-
-  /* ------------------------------------------
-     댓글 삭제
-  ------------------------------------------- */
-  const deleteComment = (id: string) => {
-    showConfirm('댓글을 삭제하시겠습니까?', () => {
-      const updated = comments.filter((c) => c.id !== id && c.parent !== id)
-      setComments(updated)
-
-      localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
+    const options = post.vote.options.map((opt: any) => {
+      if (!Array.isArray(opt.voters)) {
+        opt.voters = []
+      }
+      if (typeof opt.votes !== 'number') {
+        opt.votes = 0
+      }
+      return opt
     })
-  }
 
-  /* ------------------------------------------
-     게시글 삭제 (posts_all + board_xxx)
-  ------------------------------------------- */
-  const deletePost = () => {
-    if (!storageKey || !post) return
+    const myPrevIndex = myVoteIndex // 이전에 내가 투표했는지
+    const clicked = index
 
-    showConfirm('게시글을 삭제하시겠습니까?', () => {
-      // 게시판 제거
-      const list = JSON.parse(localStorage.getItem(storageKey) || '[]')
-      const updated = list.filter((p: any) => p.id !== post.id)
-      localStorage.setItem(storageKey, JSON.stringify(updated))
+    // -----------------------------
+    // 1) ❌ 같은 항목을 다시 누르면: 투표 취소
+    // -----------------------------
+    if (myPrevIndex === clicked) {
+      const prevOpt = options[myPrevIndex]
+      prevOpt.votes = Math.max(0, prevOpt.votes - 1)
+      prevOpt.voters = prevOpt.voters.filter((u: string) => u !== username)
 
-      // 전체 게시판 제거
-      const all = JSON.parse(localStorage.getItem('posts_all') || '[]')
-      const updatedAll = all.filter((p: any) => p.id !== post.id)
-      localStorage.setItem('posts_all', JSON.stringify(updatedAll))
-
-      showAlert('게시글이 삭제되었습니다.', () => {
-        router.push(`/board`)
-      })
-    })
-  }
-
-  /* ------------------------------------------
-     좋아요 (전체 + 게시판)
-  ------------------------------------------- */
-  const handleLike = () => {
-    if (!username) return showAlert('로그인이 필요합니다.')
-    if (!post || !storageKey) return
-
-    const likeKey = `like_postIds_${username}`
-    const liked = JSON.parse(localStorage.getItem(likeKey) || '[]')
-    const already = liked.includes(postId)
-
-    const newLikes = already ? post.likes - 1 : post.likes + 1
-
-    // board_xxx 수정
-    const boardList = JSON.parse(localStorage.getItem(storageKey) || '[]')
-    const updatedBoard = boardList.map((p: any) =>
-      p.id === post.id ? { ...p, likes: newLikes } : p
-    )
-    localStorage.setItem(storageKey, JSON.stringify(updatedBoard))
-
-    // posts_all 수정
-    const all = JSON.parse(localStorage.getItem('posts_all') || '[]')
-    const updatedAll = all.map((p: any) =>
-      p.id === post.id ? { ...p, likes: newLikes } : p
-    )
-    localStorage.setItem('posts_all', JSON.stringify(updatedAll))
-
-    setPost({ ...post, likes: newLikes })
-
-    const newLiked = already
-      ? liked.filter((x: string) => x !== postId)
-      : [...liked, postId]
-
-    localStorage.setItem(likeKey, JSON.stringify(newLiked))
-  }
-
-  /* ------------------------------------------
-     댓글 렌더링 함수
-  ------------------------------------------- */
-  const renderComments = (list: any[], depth = 0) => {
-    return list.map((c) => {
-      // 댓글 작성자 비교 (JSON이면 username만 추출)
-      let writer = c.author
-      if (typeof writer === 'string' && writer.includes('{')) {
-        try {
-          writer = JSON.parse(writer).username
-        } catch {}
+      const updatedPost = {
+        ...post,
+        vote: {
+          ...post.vote,
+          options,
+        },
       }
 
-      const isWriter = writer === username
+      setPost(updatedPost)
+      updatePostInStorage(updatedPost)
+      return
+    }
+
+    // -----------------------------
+    // 2) 🔄 다른 항목을 누르면: 이전 투표 취소 후 새 항목 투표
+    // -----------------------------
+    if (myPrevIndex !== null) {
+      // 기존 항목에서 제거
+      const prevOpt = options[myPrevIndex]
+      prevOpt.votes = Math.max(0, prevOpt.votes - 1)
+      prevOpt.voters = prevOpt.voters.filter((u: string) => u !== username)
+    }
+
+    // 새 항목에 추가
+    const newOpt = options[clicked]
+    newOpt.votes += 1
+    newOpt.voters.push(username)
+
+    const updatedPost = {
+      ...post,
+      vote: {
+        ...post.vote,
+        options,
+      },
+    }
+
+    setPost(updatedPost)
+    updatePostInStorage(updatedPost)
+  }
+
+  /* 댓글 좋아요 */
+  const toggleCommentLike = (commentId: string) => {
+    if (!username) return showAlert('로그인이 필요합니다.')
+
+    const updated = comments.map((c) => {
+      if (c.id !== commentId) return c
+
+      const already = c.likedUsers?.includes(username)
+
+      const newLikes = already ? (c.likes || 0) - 1 : (c.likes || 0) + 1
+
+      return {
+        ...c,
+        likes: newLikes,
+        likedUsers: already
+          ? c.likedUsers.filter((u: string) => u !== username)
+          : [...(c.likedUsers || []), username],
+      }
+    })
+
+    setComments(updated)
+    localStorage.setItem(`comments_${postId}`, JSON.stringify(updated))
+  }
+
+  /* ------------------------------------------
+     댓글 렌더링
+  ------------------------------------------- */
+  const renderComments = (list: any[], depth = 0) =>
+    list.map((c) => {
+      const writer = c.author
+      const isWriter = writer === myName
 
       return (
         <div
@@ -351,7 +503,6 @@ export default function PostDetailPage() {
             position: 'relative',
           }}
         >
-          {/* 메뉴 버튼 */}
           <button
             style={menuBtn}
             onClick={() =>
@@ -410,6 +561,23 @@ export default function PostDetailPage() {
                 {writer} · {c.createdAt}
               </small>
 
+              {/* 🔥 댓글 좋아요 */}
+              <button
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: c.likedUsers?.includes(username) ? '#E91E63' : '#888',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  marginTop: '6px',
+                  marginRight: '8px',
+                }}
+                onClick={() => toggleCommentLike(c.id)}
+              >
+                💙 {c.likes || 0}
+              </button>
+
+              {/* 답글 버튼 */}
               <button style={btnSmall} onClick={() => setReplyTarget(c.id)}>
                 ↪ 답글
               </button>
@@ -432,19 +600,29 @@ export default function PostDetailPage() {
             </div>
           )}
 
-          {/* 자식 댓글 */}
           {renderComments(c.children, depth + 1)}
         </div>
       )
     })
-  }
+
+  /* ------------------------------------------ */
 
   if (!post)
     return <p style={{ padding: '20px' }}>게시글을 찾을 수 없습니다.</p>
 
-  /* ------------------------------------------
-     UI RETURN
-  ------------------------------------------- */
+  const created = new Date(post.createdAt)
+  const dateStr = created.toLocaleString()
+
+  /* 🔥 투표 마감 여부 */
+  const isVoteEnded =
+    post?.vote?.endAt && new Date() > new Date(post.vote.endAt)
+
+  const hasVote =
+    post.vote?.enabled &&
+    Array.isArray(post.vote.options) &&
+    post.vote.options.length > 0
+  const alreadyVoted = myVoteIndex !== null
+
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
       <h3 style={{ color: '#4FC3F7', marginBottom: '12px' }}>
@@ -474,6 +652,17 @@ export default function PostDetailPage() {
               </button>
             )}
 
+            {/* 🔗 링크 복사 */}
+            <button
+              style={menuItem}
+              onClick={() => {
+                copyLink()
+                setMenuOpen(false) // 메뉴 닫기
+              }}
+            >
+              🔗 게시물 공유
+            </button>
+
             <button style={menuItem} onClick={() => setReportOpen(true)}>
               🚩 신고하기
             </button>
@@ -495,16 +684,40 @@ export default function PostDetailPage() {
           }}
         >
           <strong>{post.author}</strong> ·{' '}
-          <span style={{ color: '#999' }}>
-            {new Date(post.createdAt).toLocaleString()}
-          </span>
+          <span style={{ color: '#999' }}>{dateStr}</span>
         </div>
 
         <div style={{ padding: '20px', background: '#F0F8FF' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 800 }}>{post.title}</h2>
         </div>
 
-        {post.image && (
+        {/* 이미지 (여러장 or 단일) */}
+        {Array.isArray(post.images) && post.images.length > 0 && (
+          <div
+            style={{
+              padding: '16px 20px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {post.images.map((src: string, i: number) => (
+              <img
+                key={i}
+                src={src}
+                style={{
+                  width: '100%',
+                  height: 140,
+                  objectFit: 'cover',
+                  borderRadius: 10,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {!post.images && post.image && (
           <div style={{ padding: '16px 20px' }}>
             <img
               src={post.image}
@@ -518,6 +731,108 @@ export default function PostDetailPage() {
         )}
 
         <div style={postBody}>{post.content}</div>
+
+        {/* 🔥 투표 영역 (좋아요 버튼 위에 위치) */}
+        {hasVote && (
+          <div style={voteCard}>
+            <div style={voteHeader}>
+              <span style={{ fontWeight: 700 }}>투표</span>
+
+              {/* 🔥 마감 안내 */}
+              <span style={{ fontSize: 13, color: '#607D8B' }}>
+                총 {totalVotes}표{alreadyVoted && ' · 내가 참여함'}
+                {post.vote.endAt && (
+                  <>
+                    {' · '}
+                    {isVoteEnded ? (
+                      <span style={{ color: '#D32F2F', fontWeight: 700 }}>
+                        마감됨
+                      </span>
+                    ) : (
+                      <>마감 {new Date(post.vote.endAt).toLocaleString()}</>
+                    )}
+                  </>
+                )}
+              </span>
+            </div>
+
+            <div
+              style={{
+                marginTop: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              {post.vote.options.map((opt: any, idx: number) => {
+                const votes = opt.votes || 0
+                const percent =
+                  totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0
+                const isMyChoice = myVoteIndex === idx
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => !isVoteEnded && handleVote(idx)} // ⛔ 마감되면 클릭 막기
+                    style={{
+                      ...voteOptionRow,
+                      borderColor: isMyChoice ? '#0288D1' : '#CFD8DC',
+                      backgroundColor: isMyChoice ? '#E1F5FE' : '#FFFFFF',
+                      cursor: isVoteEnded ? 'not-allowed' : 'pointer',
+                      opacity: isVoteEnded ? 0.6 : 1, // ⛔ 흐리게 처리
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={voteOptionTop}>
+                        <span style={{ fontWeight: 600 }}>{opt.text}</span>
+                        <span style={{ fontSize: 13, color: '#546E7A' }}>
+                          {votes}표 · {percent}%
+                        </span>
+                      </div>
+
+                      <div style={voteBarTrack}>
+                        <div
+                          style={{
+                            ...voteBarFill,
+                            width: `${percent}%`,
+                            opacity: percent === 0 ? 0.15 : 0.9,
+                            background: isMyChoice
+                              ? 'linear-gradient(90deg, #4FC3F7, #0288D1)'
+                              : '#B0BEC5',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {isMyChoice && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: '#0288D1',
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          background: '#E1F5FE',
+                          marginLeft: 8,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        내 선택
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 안내 문구 */}
+            <p style={{ marginTop: 8, fontSize: 12, color: '#78909C' }}>
+              {isVoteEnded
+                ? '⛔ 투표가 마감되었습니다.'
+                : '투표는 1회만 가능하며, 선택한 항목을 다시 누르면 취소됩니다.'}
+            </p>
+          </div>
+        )}
 
         <div style={{ padding: '0 20px 20px' }}>
           <button style={btnBlue} onClick={handleLike}>
@@ -575,7 +890,6 @@ export default function PostDetailPage() {
               🚨 신고하기
             </h3>
 
-            {/* 신고 유형 */}
             <select
               style={inputBox}
               value={reportType}
@@ -588,7 +902,6 @@ export default function PostDetailPage() {
               <option value="기타">기타</option>
             </select>
 
-            {/* 기타 사유 입력 */}
             {reportType === '기타' && (
               <textarea
                 style={reportTextArea}
@@ -725,7 +1038,6 @@ const textBox: React.CSSProperties = {
   fontSize: '14px',
   boxSizing: 'border-box',
   background: '#ffffff',
-  resize: 'none',
 }
 
 const btnBlue: React.CSSProperties = {
@@ -804,4 +1116,51 @@ const reportTextArea: React.CSSProperties = {
   background: '#FAFCFF',
   marginTop: '10px',
   boxSizing: 'border-box',
+}
+
+/* 🔥 투표 스타일 */
+const voteCard: React.CSSProperties = {
+  margin: '0 20px 16px',
+  padding: '16px 14px 12px',
+  borderRadius: 14,
+  background: '#F5FAFF',
+  border: '1px solid #BBDEFB',
+}
+
+const voteHeader: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+}
+
+const voteOptionRow: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  padding: '10px 10px',
+  borderRadius: 12,
+  border: '1px solid #CFD8DC',
+  background: '#FFFFFF',
+  gap: 8,
+  transition: '0.2s',
+}
+
+const voteOptionTop: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 6,
+}
+
+const voteBarTrack: React.CSSProperties = {
+  width: '100%',
+  height: 8,
+  borderRadius: 999,
+  background: '#ECEFF1',
+  overflow: 'hidden',
+}
+
+const voteBarFill: React.CSSProperties = {
+  height: '100%',
+  borderRadius: 999,
+  transition: 'width 0.25s ease',
 }
