@@ -75,19 +75,41 @@ export default function HomePage() {
        👉 이번 주(월~일) 안 + 오늘 이후 일정만
     ========================================== */
     try {
-      const raw =
+      /* 🔹 기존 일정 읽기 */
+      const rawCalendar =
         localStorage.getItem('calendarEvents') ||
         localStorage.getItem('calendar_events')
 
-      if (!raw) {
-        setCalendar([])
-        return
+      /* 🔹 학사일정 읽기 */
+      const rawAcademic = localStorage.getItem('academicEvents')
+
+      let events: { date: string; title: string; startTime?: string }[] = []
+
+      // calendarEvents 병합
+      if (rawCalendar) {
+        const parsed = JSON.parse(rawCalendar)
+        if (Array.isArray(parsed)) {
+          events = [...parsed]
+        }
       }
 
-      type CalendarEvent = { date: string; title: string; startTime?: string }
+      // academicEvents 병합 (📌 학사일정은 dictionary 구조라서 flatten 해야 함)
+      if (rawAcademic) {
+        const schoolMap = JSON.parse(rawAcademic) // { "2025-05-01": [ {title}, ... ] }
 
-      const parsed = JSON.parse(raw)
-      const events: CalendarEvent[] = Array.isArray(parsed) ? parsed : []
+        Object.keys(schoolMap).forEach((date) => {
+          const dayEvents = schoolMap[date]
+          if (Array.isArray(dayEvents)) {
+            dayEvents.forEach((ev) =>
+              events.push({
+                date,
+                title: ev.title,
+                startTime: ev.startTime,
+              })
+            )
+          }
+        })
+      }
 
       const todayDate = new Date()
       const msPerDay = 1000 * 60 * 60 * 24
