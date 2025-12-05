@@ -120,10 +120,14 @@ export default function SignupPage() {
   }
 
   const handleFinalSubmit = () => {
+    const social = JSON.parse(localStorage.getItem('socialUser') || '{}')
+
     const newUser = {
       username,
       password,
       name: realName,
+      email: social.email || '',
+      social_id: social.id || null,
       school,
       schoolCode,
       eduCode,
@@ -135,10 +139,14 @@ export default function SignupPage() {
     const updated = [...users, newUser]
     localStorage.setItem('users', JSON.stringify(updated))
 
+    // 🔥 급식 / 학사일정에서 사용할 데이터 저장
+    localStorage.setItem('userSchool', school)
+    localStorage.setItem('eduCode', eduCode)
+    localStorage.setItem('schoolCode', schoolCode)
+
     showAlert('회원가입 완료!')
     setTimeout(() => (window.location.href = '/auth/login'), 1500)
   }
-
   // 스타일
   const cardStyle: React.CSSProperties = {
     width: '420px',
