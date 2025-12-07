@@ -288,7 +288,7 @@ export default function CalendarPage() {
         const to = `${y}${m}31`
 
         // 🔥 학교코드 값 적용
-        const API_KEY = process.env.NEXT_PUBLIC_NEIS_KEY
+        const API_KEY = `109e3660c3624bf5a4803631891234ef`
         const API_URL = `https://open.neis.go.kr/hub/SchoolSchedule?KEY=${API_KEY}&Type=json&ATPT_OFCDC_SC_CODE=${eduCode}&SD_SCHUL_CODE=${schoolCode}&AA_FROM_YMD=${from}&AA_TO_YMD=${to}`
 
         const res = await fetch(API_URL)
