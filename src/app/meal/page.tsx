@@ -51,15 +51,24 @@ function getWeekDates() {
   const today = new Date()
   const kr = new Date(today.getTime() + 9 * 60 * 60 * 1000)
 
-  // 📌 다음 주 월요일 계산
+  // 📌 오늘의 요일 (0=일)
   const day = kr.getDay()
-  const nextMonday = new Date(kr)
-  nextMonday.setDate(kr.getDate() - (day === 0 ? 6 : day - 1) + 7)
+
+  let start = new Date(kr)
+
+  if (day === 0) {
+    // 📌 오늘이 일요일이면 내일부터 시작
+    start.setDate(kr.getDate() + 1)
+  } else {
+    // 📌 오늘이 월~금이면 이번 주 월요일 기준 시작
+    start.setDate(kr.getDate() - (day - 1))
+  }
 
   const dates = []
+
   for (let i = 0; i < 5; i++) {
-    const d = new Date(nextMonday)
-    d.setDate(nextMonday.getDate() + i)
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
 
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, '0')
