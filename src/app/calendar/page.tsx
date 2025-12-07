@@ -153,6 +153,15 @@ export default function CalendarPage() {
     today.getMonth() + 1
   ).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
+  // 🔵 삭제 확인 모달 상태
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    onCancel: () => {},
+  })
+
   // 📌 🔥 학교코드 로드 추가
   useEffect(() => {
     const storedEdu = localStorage.getItem('eduCode')
@@ -279,7 +288,8 @@ export default function CalendarPage() {
         const to = `${y}${m}31`
 
         // 🔥 학교코드 값 적용
-        const API_URL = `https://open.neis.go.kr/hub/SchoolSchedule?KEY=109e3660c3624bf5a4803631891234ef&Type=json&ATPT_OFCDC_SC_CODE=${eduCode}&SD_SCHUL_CODE=${schoolCode}&AA_FROM_YMD=${from}&AA_TO_YMD=${to}`
+        const API_KEY = process.env.NEXT_PUBLIC_NEIS_KEY
+        const API_URL = `https://open.neis.go.kr/hub/SchoolSchedule?KEY=${API_KEY}&Type=json&ATPT_OFCDC_SC_CODE=${eduCode}&SD_SCHUL_CODE=${schoolCode}&AA_FROM_YMD=${from}&AA_TO_YMD=${to}`
 
         const res = await fetch(API_URL)
         if (!res.ok) throw new Error('학사일정 오류')
@@ -511,39 +521,49 @@ export default function CalendarPage() {
     const dateKey = modalStartDate || selectedDate
     if (!dateKey) return
 
-    const ok = window.confirm('이 날짜의 모든 일정을 삭제할까요?')
-    if (!ok) return
+    setConfirmModal({
+      show: true,
+      title: '일정 삭제',
+      message: '이 날짜에 저장된 모든 일정을 삭제할까요?',
+      onConfirm: () => {
+        setDateNoteTitles((prev) => {
+          const next = { ...prev }
+          delete next[dateKey]
+          return next
+        })
 
-    setDateNoteTitles((prev) => {
-      const next = { ...prev }
-      delete next[dateKey]
-      return next
+        setDateNoteContents((prev) => {
+          const next = { ...prev }
+          delete next[dateKey]
+          return next
+        })
+
+        setMemos((prev) => {
+          const next = { ...prev }
+          delete next[dateKey]
+          return next
+        })
+
+        setCustomColors((prev) => {
+          const next = { ...prev }
+          delete next[dateKey]
+          return next
+        })
+
+        setPeriods((prev) =>
+          prev.filter((p) => !(p.start <= dateKey && dateKey <= p.end))
+        )
+
+        setEditingIndex(null)
+        setIsModalOpen(false)
+
+        // 🔹 모달 닫기
+        setConfirmModal((p) => ({ ...p, show: false }))
+      },
+      onCancel: () => {
+        setConfirmModal((p) => ({ ...p, show: false }))
+      },
     })
-
-    setDateNoteContents((prev) => {
-      const next = { ...prev }
-      delete next[dateKey]
-      return next
-    })
-
-    setMemos((prev) => {
-      const next = { ...prev }
-      delete next[dateKey]
-      return next
-    })
-
-    setCustomColors((prev) => {
-      const next = { ...prev }
-      delete next[dateKey]
-      return next
-    })
-
-    setPeriods((prev) =>
-      prev.filter((p) => !(p.start <= dateKey && dateKey <= p.end))
-    )
-
-    setEditingIndex(null)
-    setIsModalOpen(false)
   }
 
   const cellsWithRender = cells
@@ -1023,6 +1043,81 @@ export default function CalendarPage() {
                 이 날짜의 일정 전체 삭제
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 📌 일정 삭제 Confirm Modal */}
+      {confirmModal.show && (
+        <div className="modal-backdrop" onClick={() => confirmModal.onCancel()}>
+          <div
+            className="modal-panel"
+            style={{
+              maxWidth: '340px',
+              border: '2px solid #2563eb',
+              paddingBottom: '18px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header" style={{ background: '#eff6ff' }}>
+              <span className="modal-title">{confirmModal.title}</span>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => confirmModal.onCancel()}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '18px 14px 6px',
+                fontSize: '13px',
+                color: '#374151',
+                whiteSpace: 'pre-line',
+              }}
+            >
+              {confirmModal.message}
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '10px',
+                marginTop: '10px',
+              }}
+            >
+              <button
+                onClick={confirmModal.onConfirm}
+                style={{
+                  background: '#2563eb',
+                  color: '#fff',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  border: 'none',
+                }}
+              >
+                삭제
+              </button>
+
+              <button
+                onClick={confirmModal.onCancel}
+                style={{
+                  background: '#9ca3af',
+                  color: '#fff',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  border: 'none',
+                }}
+              >
+                취소
+              </button>
+            </div>
           </div>
         </div>
       )}
